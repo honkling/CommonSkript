@@ -100,8 +100,6 @@ public class Variables {
 	// Register some things with Yggdrasil
 	static {
 		registerStorage(FlatFileStorage.class, "csv", "file", "flatfile");
-		registerStorage(SQLiteStorage.class, "sqlite");
-		registerStorage(MySQLStorage.class, "mysql");
 		yggdrasil.registerSingleClass(Kleenean.class, "Kleenean");
 		// Register ConfigurationSerializable, Bukkit's serialization system
 		yggdrasil.registerClassResolver(new ConfigurationSerializer<ConfigurationSerializable>() {

@@ -20,21 +20,13 @@ package ch.njol.skript;
 
 import ch.njol.skript.lang.SkriptEvent;
 import ch.njol.skript.lang.Trigger;
-import ch.njol.skript.timings.SkriptTimings;
 import ch.njol.skript.util.Task;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
 import org.bukkit.Bukkit;
-import org.bukkit.event.Cancellable;
-import org.bukkit.event.Event;
+import org.bukkit.event.*;
 import org.bukkit.event.Event.Result;
-import org.bukkit.event.EventPriority;
-import org.bukkit.event.HandlerList;
-import org.bukkit.event.Listener;
-import org.bukkit.event.block.Action;
-import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.plugin.EventExecutor;
-import org.bukkit.plugin.RegisteredListener;
 import org.eclipse.jdt.annotation.Nullable;
 
 import java.lang.ref.WeakReference;
@@ -149,24 +141,9 @@ public final class SkriptEventHandler {
 	 */
 	private static boolean isCancelled(Event event) {
 		return event instanceof Cancellable &&
-			(((Cancellable) event).isCancelled() && isResultDeny(event)) &&
+			(((Cancellable) event).isCancelled()) &&
 			// TODO: listenCancelled is deprecated and should be removed in 2.10
 			!listenCancelled.contains(event.getClass());
-	}
-
-	/**
-	 * Helper method for when the provided Event is a {@link PlayerInteractEvent}.
-	 * These events are special in that they are called as cancelled when the player is left/right clicking on air.
-	 * We don't want to treat those as cancelled, so we need to check if the {@link PlayerInteractEvent#useItemInHand()} result is DENY.
-	 * That means the event was purposefully cancelled, and we should treat it as cancelled.
-	 *
-	 * @param event The event to check.
-	 * @return Whether the event was a PlayerInteractEvent with air and the result was DENY.
-	 */
-	private static boolean isResultDeny(Event event) {
-		return !(event instanceof PlayerInteractEvent &&
-			(((PlayerInteractEvent) event).getAction() == Action.LEFT_CLICK_AIR || ((PlayerInteractEvent) event).getAction() == Action.RIGHT_CLICK_AIR) &&
-			((PlayerInteractEvent) event).useItemInHand() != Result.DENY);
 	}
 
 	/**
@@ -179,9 +156,7 @@ public final class SkriptEventHandler {
 		// these methods need to be run on whatever thread the trigger is
 		Runnable execute = () -> {
 			logTriggerStart(trigger);
-			Object timing = SkriptTimings.start(trigger.getDebugLabel());
 			trigger.execute(event);
-			SkriptTimings.stop(timing);
 			logTriggerEnd(trigger);
 		};
 

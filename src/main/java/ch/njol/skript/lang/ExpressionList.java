@@ -19,7 +19,6 @@
 package ch.njol.skript.lang;
 
 import ch.njol.skript.classes.Changer.ChangeMode;
-import ch.njol.skript.conditions.CondCompare;
 import ch.njol.skript.lang.SkriptParser.ParseResult;
 import ch.njol.skript.lang.util.SimpleLiteral;
 import ch.njol.skript.registrations.Classes;

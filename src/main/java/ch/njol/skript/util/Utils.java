@@ -37,11 +37,8 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import org.bukkit.Bukkit;
-import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.plugin.messaging.Messenger;
-import org.bukkit.plugin.messaging.PluginMessageListener;
 import org.eclipse.jdt.annotation.Nullable;
 
 import com.google.common.collect.Iterables;
@@ -50,7 +47,6 @@ import com.google.common.io.ByteArrayDataOutput;
 import com.google.common.io.ByteStreams;
 
 import ch.njol.skript.Skript;
-import ch.njol.skript.effects.EffTeleport;
 import ch.njol.skript.localization.Language;
 import ch.njol.skript.localization.LanguageChangeListener;
 import ch.njol.skript.registrations.Classes;
@@ -61,7 +57,6 @@ import ch.njol.util.Pair;
 import ch.njol.util.StringUtils;
 import ch.njol.util.coll.CollectionUtils;
 import ch.njol.util.coll.iterator.EnumerationIterable;
-import net.md_5.bungee.api.ChatColor;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -215,7 +210,7 @@ public abstract class Utils {
 	}
 
 	/**
-	 * The first invocation of this method uses reflection to invoke the protected method {@link JavaPlugin#getFile()} to get the plugin's jar file.
+	 * The first invocation of this method uses reflection to invoke the protected method JavaPlugin#getFile() to get the plugin's jar file.
 	 * 
 	 * @return The jar file of the plugin.
 	 */
@@ -226,9 +221,9 @@ public abstract class Utils {
 			getFile.setAccessible(true);
 			return (File) getFile.invoke(plugin);
 		} catch (NoSuchMethodException e) {
-			Skript.outdatedError(e);
+			throw new RuntimeException(e);
 		} catch (IllegalArgumentException e) {
-			Skript.outdatedError(e);
+			throw new RuntimeException(e);
 		} catch (IllegalAccessException e) {
 			assert false;
 		} catch (SecurityException e) {
@@ -370,7 +365,7 @@ public abstract class Utils {
 	
 	/**
 	 * Gets the collision height of solid or partially-solid blocks at the center of the block.
-	 * This is mostly for use in the {@link EffTeleport teleport effect}.
+	 * This is mostly for use in the EffTeleport teleport effect.
 	 * <p>
 	 * This version operates on numeric ids, thus only working on
 	 * Minecraft 1.12 or older.
@@ -426,143 +421,8 @@ public abstract class Utils {
 		}
 	}
 
-	/**
-	 * Sends a plugin message using the first player from {@link Bukkit#getOnlinePlayers()}.
-	 *
-	 * The next plugin message to be received through {@code channel} will be assumed to be
-	 * the response.
-	 *
-	 * @param channel the channel for this plugin message
-	 * @param data the data to add to the outgoing message
-	 * @return a completable future for the message of the responding plugin message, if there is one.
-	 * this completable future will complete exceptionally if no players are online.
-	 */
-	public static CompletableFuture<ByteArrayDataInput> sendPluginMessage(String channel, String... data) {
-		return sendPluginMessage(channel, r -> true, data);
-	}
-
-	/**
-	 * Sends a plugin message using the from {@code player}.
-	 *
-	 * The next plugin message to be received through {@code channel} will be assumed to be
-	 * the response.
-	 *
-	 * @param player the player to send the plugin message through
-	 * @param channel the channel for this plugin message
-	 * @param data the data to add to the outgoing message
-	 * @return a completable future for the message of the responding plugin message, if there is one.
-	 * this completable future will complete exceptionally if no players are online.
-	 */
-	public static CompletableFuture<ByteArrayDataInput> sendPluginMessage(Player player, String channel, String... data) {
-		return sendPluginMessage(player, channel, r -> true, data);
-	}
-
-	/**
-	 * Sends a plugin message using the first player from {@link Bukkit#getOnlinePlayers()}.
-	 *
-	 * @param channel the channel for this plugin message
-	 * @param messageVerifier verifies that a plugin message is the response to the sent message
-	 * @param data the data to add to the outgoing message
-	 * @return a completable future for the message of the responding plugin message, if there is one.
-	 * this completable future will complete exceptionally if the player is null.
-	 * @throws IllegalStateException when there are no players online
-	 */
-	public static CompletableFuture<ByteArrayDataInput> sendPluginMessage(String channel,
-			Predicate<ByteArrayDataInput> messageVerifier, String... data) throws IllegalStateException {
-		Player firstPlayer = Iterables.getFirst(Bukkit.getOnlinePlayers(), null);
-		if (firstPlayer == null)
-			throw new IllegalStateException("There are no players online");
-		return sendPluginMessage(firstPlayer, channel, messageVerifier, data);
-	}
-
-	/**
-	 * Sends a plugin message.
-	 *
-	 * Example usage using the "GetServers" bungee plugin message channel via an overload:
-	 * <code>
-	 *     Utils.sendPluginMessage("BungeeCord", r -> "GetServers".equals(r.readUTF()), "GetServers")
-	 *     			.thenAccept(response -> Bukkit.broadcastMessage(response.readUTF()) // comma delimited server broadcast
-	 *     			.exceptionally(ex -> {
-	 *     			 	Skript.warning("Failed to get servers because there are no players online");
-	 *     			 	return null;
-	 *     			});
-	 * </code>
-	 *
-	 * @param player the player to send the plugin message through
-	 * @param channel the channel for this plugin message
-	 * @param messageVerifier verifies that a plugin message is the response to the sent message
-	 * @param data the data to add to the outgoing message
-	 * @return a completable future for the message of the responding plugin message, if there is one.
-	 * this completable future will complete exceptionally if the player is null.
-	 */
-	public static CompletableFuture<ByteArrayDataInput> sendPluginMessage(Player player, String channel,
-			Predicate<ByteArrayDataInput> messageVerifier, String... data) {
-		CompletableFuture<ByteArrayDataInput> completableFuture = new CompletableFuture<>();
-
-		Skript skript = Skript.getInstance();
-		Messenger messenger = Bukkit.getMessenger();
-
-		messenger.registerOutgoingPluginChannel(skript, channel);
-
-		PluginMessageListener listener = (sendingChannel, sendingPlayer, message) -> {
-			ByteArrayDataInput input = ByteStreams.newDataInput(message);
-			if (channel.equals(sendingChannel) && sendingPlayer == player && !completableFuture.isDone()
-					&& !completableFuture.isCancelled() && messageVerifier.test(input)) {
-				completableFuture.complete(input);
-			}
-		};
-
-		messenger.registerIncomingPluginChannel(skript, channel, listener);
-
-		completableFuture.whenComplete((r, ex) -> messenger.unregisterIncomingPluginChannel(skript, channel, listener));
-
-		// if we haven't gotten a response after a minute, let's just assume there wil never be one
-		Bukkit.getScheduler().scheduleSyncDelayedTask(skript, () -> {
-
-			if (!completableFuture.isDone())
-				completableFuture.cancel(true);
-
-		}, 60 * 20);
-
-		ByteArrayDataOutput out = ByteStreams.newDataOutput();
-		Stream.of(data).forEach(out::writeUTF);
-		player.sendPluginMessage(Skript.getInstance(), channel, out.toByteArray());
-
-		return completableFuture;
-	}
-	
-	final static ChatColor[] styles = {ChatColor.BOLD, ChatColor.ITALIC, ChatColor.STRIKETHROUGH, ChatColor.UNDERLINE, ChatColor.MAGIC, ChatColor.RESET};
 	final static Map<String, String> chat = new HashMap<>();
 	final static Map<String, String> englishChat = new HashMap<>();
-	
-	public final static boolean HEX_SUPPORTED = Skript.isRunningMinecraft(1, 16);
-	public final static boolean COPY_SUPPORTED = Skript.isRunningMinecraft(1, 15);
-	
-	static {
-		Language.addListener(new LanguageChangeListener() {
-			@Override
-			public void onLanguageChange() {
-				final boolean english = englishChat.isEmpty();
-				chat.clear();
-				for (final ChatColor style : styles) {
-					for (final String s : Language.getList("chat styles." + style.name())) {
-						chat.put(s.toLowerCase(Locale.ENGLISH), style.toString());
-						if (english)
-							englishChat.put(s.toLowerCase(Locale.ENGLISH), style.toString());
-					}
-				}
-			}
-		});
-	}
-	
-	@Nullable
-	public static String getChatStyle(final String s) {
-		SkriptColor color = SkriptColor.fromName(s);
-		
-		if (color != null)
-			return color.getFormattedChat();
-		return chat.get(s);
-	}
 	
 	private final static Pattern stylePattern = Pattern.compile("<([^<>]+)>");
 	
@@ -578,18 +438,10 @@ public abstract class Utils {
 		String m = StringUtils.replaceAll(Matcher.quoteReplacement("" + message.replace("<<none>>", "")), stylePattern, new Callback<String, Matcher>() {
 			@Override
 			public String run(final Matcher m) {
-				SkriptColor color = SkriptColor.fromName("" + m.group(1));
-				if (color != null)
-					return color.getFormattedChat();
 				final String tag = m.group(1).toLowerCase(Locale.ENGLISH);
 				final String f = chat.get(tag);
 				if (f != null)
 					return f;
-				if (HEX_SUPPORTED && tag.startsWith("#")) { // Check for parsing hex colors
-					ChatColor chatColor = parseHexColor(tag);
-					if (chatColor != null)
-						return chatColor.toString();
-				}
 				return "" + m.group();
 			}
 		});
@@ -599,7 +451,6 @@ public abstract class Utils {
 		if (!message.equals(m)) {
 			m = m.replace("\\$", "$").replace("\\\\", "\\");
 		}
-		m = ChatColor.translateAlternateColorCodes('&', "" + m);
 		return "" + m;
 	}
 	
@@ -616,18 +467,10 @@ public abstract class Utils {
 		String m = StringUtils.replaceAll(Matcher.quoteReplacement(message), stylePattern, new Callback<String, Matcher>() {
 			@Override
 			public String run(final Matcher m) {
-				SkriptColor color = SkriptColor.fromName("" + m.group(1));
-				if (color != null)
-					return color.getFormattedChat();
 				final String tag = m.group(1).toLowerCase(Locale.ENGLISH);
 				final String f = englishChat.get(tag);
 				if (f != null)
 					return f;
-				if (HEX_SUPPORTED && tag.startsWith("#")) { // Check for parsing hex colors
-					ChatColor chatColor = parseHexColor(tag);
-					if (chatColor != null)
-						return chatColor.toString();
-				}
 				return "" + m.group();
 			}
 		});
@@ -637,30 +480,10 @@ public abstract class Utils {
 		if (!message.equals(m)) {
 			m = m.replace("\\$", "$").replace("\\\\", "\\");
 		}
-		m = ChatColor.translateAlternateColorCodes('&', "" + m);
 		return "" + m;
 	}
 
 	private static final Pattern HEX_PATTERN = Pattern.compile("(?i)#{0,2}[0-9a-f]{6}");
-
-	/**
-	 * Tries to get a {@link ChatColor} from the given string.
-	 * @param hex The hex code to parse.
-	 * @return The ChatColor, or null if it couldn't be parsed.
-	 */
-	@SuppressWarnings("null")
-	@Nullable
-	public static ChatColor parseHexColor(String hex) {
-		if (!HEX_SUPPORTED || !HEX_PATTERN.matcher(hex).matches()) // Proper hex code validation
-			return null;
-		
-		hex = hex.replace("#", "");
-		try {
-			return ChatColor.of('#' + hex.substring(0, 6));
-		} catch (IllegalArgumentException e) {
-			return null;
-		}
-	}
 	
 	/**
 	 * Gets a random value between <tt>start</tt> (inclusive) and <tt>end</tt> (exclusive)

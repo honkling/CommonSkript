@@ -39,7 +39,6 @@ public final class ArgsMessage extends Message {
 			return val == null ? key : "" + String.format(val, args);
 		} catch (IllegalFormatException e) {
 			String m = "The formatted message '" + key + "' uses an illegal format: " + e.getLocalizedMessage();
-			Skript.adminBroadcast("<red>" + m);
 			System.err.println("[Skript] " + m);
 			e.printStackTrace();
 			return "[ERROR]";

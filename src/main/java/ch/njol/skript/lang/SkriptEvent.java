@@ -23,7 +23,6 @@ import ch.njol.skript.Skript;
 import ch.njol.skript.SkriptConfig;
 import ch.njol.skript.SkriptEventHandler;
 import ch.njol.skript.config.SectionNode;
-import ch.njol.skript.events.EvtClick;
 import ch.njol.skript.lang.SkriptParser.ParseResult;
 import ch.njol.skript.structures.StructEvent.EventData;
 import ch.njol.skript.util.Utils;
@@ -41,8 +40,6 @@ import java.util.Locale;
 /**
  * A SkriptEvent is like a condition. It is called when any of the registered events occurs.
  * An instance of this class should then check whether the event applies
- * (e.g. the rightclick event is included in the PlayerInteractEvent which also includes lefclicks, thus the SkriptEvent {@link EvtClick} checks whether it was a rightclick or
- * not).<br/>
  * It is also needed if the event has parameters.
  *
  * @see Skript#registerEvent(String, Class, Class, String...)

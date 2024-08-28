@@ -7,10 +7,15 @@ plugins {
 	id 'com.github.johnrengelman.shadow' version '8.1.1'
 	id 'maven-publish'
 	id 'java'
+	id 'application'
 }
 
 configurations {
     testImplementation.extendsFrom testShadow
+}
+
+application {
+	mainClass = "ch.njol.skript.Main"
 }
 
 allprojects {
@@ -25,22 +30,21 @@ allprojects {
 }
 
 dependencies {
-	shadow group: 'io.papermc', name: 'paperlib', version: '1.0.8'
 	shadow group: 'org.bstats', name: 'bstats-bukkit', version: '3.0.2'
 	shadow group: 'net.kyori', name: 'adventure-text-serializer-bungeecord', version: '4.3.2'
 
-	implementation group: 'io.papermc.paper', name: 'paper-api', version: '1.21-R0.1-SNAPSHOT'
-	implementation group: 'org.eclipse.jdt', name: 'org.eclipse.jdt.annotation', version: '2.2.700'
-	implementation group: 'com.google.code.findbugs', name: 'findbugs', version: '3.0.1'
-	implementation group: 'com.sk89q.worldguard', name: 'worldguard-legacy', version: '7.0.0-SNAPSHOT'
-	implementation group: 'net.milkbowl.vault', name: 'Vault', version: '1.7.3', {
-		exclude group: 'org.bstats', module: 'bstats-bukkit'
-	}
+	shadow group: 'org.eclipse.jdt', name: 'org.eclipse.jdt.annotation', version: '2.2.700'
+	shadow group: 'com.google.code.findbugs', name: 'findbugs', version: '3.0.1'
+	shadow group: "com.google.code.gson", name: "gson", version: "2.8.0"
+	shadow "com.google.guava:guava:21.0"
+	shadow "com.googlecode.json-simple:json-simple:1.1.1"
+	shadow "commons-lang:commons-lang:2.6"
+	shadow "org.yaml:snakeyaml:1.23"
 
-	implementation fileTree(dir: 'lib', include: '*.jar')
+//	implementation fileTree(dir: 'lib', include: '*.jar')
 
-	testShadow group: 'junit', name: 'junit', version: '4.13.2'
-	testShadow group: 'org.easymock', name: 'easymock', version: '5.0.1'
+//	testShadow group: 'junit', name: 'junit', version: '4.13.2'
+//	testShadow group: 'org.easymock', name: 'easymock', version: '5.0.1'
 }
 
 task checkAliases {
@@ -51,12 +55,6 @@ task checkAliases {
 			throw new InvalidUserDataException('Aliases are missing from \'skript-aliases\' folder. Consider fetching submodules with \'git submodule update --init\'.')
 		}
 	}
-}
-
-task testJar(type: ShadowJar) {
-	dependsOn(compileTestJava)
-	archiveFileName = 'Skript-JUnit.jar'
-	from sourceSets.test.output, sourceSets.main.output, project.configurations.testShadow
 }
 
 task jar(overwrite: true, type: ShadowJar) {
@@ -70,12 +68,6 @@ task build(overwrite: true, type: ShadowJar) {
 	from sourceSets.main.output
 }
 
-// Excludes the tests for the build task. Should be using junit, junitJava17, junitJava11, skriptTest, quickTest.
-// We do not want tests to run for building. That's time consuming and annoying. Especially in development.
-test {
-	exclude '**/*'
-}
-
 task sourceJar(type: Jar) {
 	from sourceSets.main.allJava
 	archiveClassifier = 'sources'
@@ -86,12 +78,18 @@ tasks.withType(ShadowJar) {
 		project.configurations.shadow
 	]
 	dependencies {
-		include(dependency('io.papermc:paperlib'))
 		include(dependency('org.bstats:bstats-bukkit'))
 		include(dependency('org.bstats:bstats-base'))
 		include(dependency('net.kyori:adventure-text-serializer-bungeecord'))
+		include(dependency('org.eclipse.jdt:org'))
+		include(dependency('com.google.code.findbugs:findbugs'))
+		include(dependency('com.google.code.gson:gson'))
+		include(dependency("com.google.guava:guava"))
+		include(dependency("com.googlecode.json-simple:json-simple"))
+		include(dependency("commons-lang:commons-lang"))
+		include(dependency("org.yaml:snakeyaml"))
 	}
-	relocate 'io.papermc.lib', 'ch.njol.skript.paperlib'
+//	relocate 'io.papermc.lib', 'ch.njol.skript.paperlib'
 	relocate 'org.bstats', 'ch.njol.skript.bstats'
 	manifest {
 		attributes(
@@ -117,118 +115,8 @@ processResources {
 	]
 }
 
-publishing {
-	publications {
-		maven(MavenPublication) {
-			groupId 'com.github.SkriptLang'
-			artifactId 'Skript'
-			version project.version
-			artifact sourceJar
-			artifact tasks.jar
-		}
-	}
-
-	repositories {
-		maven {
-			name = 'repo'
-			url = 'https://repo.skriptlang.org/releases'
-			credentials {
-				username = System.getenv('MAVEN_USERNAME')
-				password = System.getenv('MAVEN_PASSWORD')
-			}
-		}
-	}
-}
-
-// Task to check that test scripts are named correctly
-tasks.register('testNaming') {
-	doLast {
-		// Regression tests
-		for (def file : project.file('src/test/skript/tests/regressions').listFiles()) {
-			def name = file.getName()
-			if (name.toLowerCase(Locale.ENGLISH) != name) {
-				throw new InvalidUserDataException('invalid test name: ' + name)
-			}
-		}
-
-		// Syntax tests
-		for (def dir : project.file('src/test/skript/tests/syntaxes').listFiles()) {
-			for (def file : dir.listFiles()) {
-				def name = file.getName()
-				if (!name.startsWith('.') && !Character.isJavaIdentifierStart(name.codePointAt(0))) {
-					throw new InvalidUserDataException('invalid test name: ' + name)
-				}
-			}
-		}
-	}
-}
-
 enum Modifiers {
 	DEV_MODE, GEN_NIGHTLY_DOCS, GEN_RELEASE_DOCS, DEBUG, PROFILE, JUNIT
-}
-
-// Create a test task with given name, environments dir/file, dev mode and java version.
-// -1 on the timeout means it'll be disabled.
-void createTestTask(String name, String desc, String environments, int javaVersion, long timeout, Modifiers... modifiers) {
-	if (timeout == 0)
-		timeout = 300000 // 5 minutes
-	boolean junit = modifiers.contains(Modifiers.JUNIT)
-	boolean releaseDocs = modifiers.contains(Modifiers.GEN_RELEASE_DOCS)
-	boolean docs = modifiers.contains(Modifiers.GEN_NIGHTLY_DOCS) || releaseDocs
-	def artifact = 'build' + File.separator + 'libs' + File.separator
-	if (junit) {
-		artifact += 'Skript-JUnit.jar'
-	} else if (releaseDocs) {
-		artifact += 'Skript-' + version + '.jar'
-	} else {
-		artifact += 'Skript-nightly.jar'
-	}
-	tasks.register(name, JavaExec) {
-		description = desc
-		if (junit) {
-			dependsOn testJar
-		} else if (releaseDocs) {
-			dependsOn githubRelease, testNaming
-		} else {
-			dependsOn nightlyRelease, testNaming
-		}
-		javaLauncher = javaToolchains.launcherFor {
-	        languageVersion = JavaLanguageVersion.of(javaVersion)
-	    }
-		if (modifiers.contains(Modifiers.DEV_MODE)) {
-			standardInput = System.in
-		}
-		group = 'execution'
-		classpath = files([
-			artifact,
-			project.configurations.runtimeClasspath.find { it.name.startsWith('gson') },
-			sourceSets.main.runtimeClasspath
-		])
-		main = 'ch.njol.skript.test.platform.PlatformMain'
-		args = [
-			'build/test_runners',
-			junit ? 'src/test/skript/junit' : 'src/test/skript/tests',
-			'src/test/resources/runner_data',
-			environments,
-			modifiers.contains(Modifiers.DEV_MODE),
-			docs,
-			junit,
-			modifiers.contains(Modifiers.DEBUG),
-			project.findProperty('verbosity') ?: "null",
-			timeout
-		]
-
-		// Do first is used when throwing exceptions.
-		// This way it's not called when defining the task.
-		doFirst {
-			if (!gradle.taskGraph.hasTask(":tasks") && !gradle.startParameter.dryRun && modifiers.contains(Modifiers.PROFILE)) {
-				if (!project.hasProperty('profiler'))
-					throw new MissingPropertyException('Add parameter -Pprofiler=<path to profiler>', 'profiler', String.class)
-
-				args += '-agentpath:' + project.property('profiler') + '=port=8849,nowait'
-			}
-		}
-	}
 }
 
 def java21 = 21
@@ -252,34 +140,6 @@ tasks.withType(JavaCompile).configureEach {
 
 compileJava.options.encoding = 'UTF-8'
 compileTestJava.options.encoding = 'UTF-8'
-
-// Register different Skript testing tasks
-String environments = 'src/test/skript/environments/';
-String env = project.property('testEnv') == null ? latestEnv : project.property('testEnv') + '.json'
-int envJava = project.property('testEnvJavaVersion') == null ? latestJava : Integer.parseInt(project.property('testEnvJavaVersion') as String)
-createTestTask('quickTest', 'Runs tests on one environment being the latest supported Java and Minecraft.', environments + latestEnv, latestJava, 0)
-createTestTask('skriptTestJava21', 'Runs tests on all Java 21 environments.', environments + 'java21', java21, 0)
-createTestTask('skriptTestJava17', 'Runs tests on all Java 17 environments.', environments + 'java17', java17, 0)
-createTestTask('skriptTestJava11', 'Runs tests on all Java 11 environments.', environments + 'java11', java11, 0)
-createTestTask('skriptTestDev', 'Runs testing server and uses \'system.in\' for command input, stop server to finish.', environments + env, envJava, 0, Modifiers.DEV_MODE, Modifiers.DEBUG)
-createTestTask('skriptProfile', 'Starts the testing server with JProfiler support.', environments + latestEnv, latestJava, -1, Modifiers.PROFILE)
-createTestTask('genNightlyDocs', 'Generates the Skript documentation website html files.', environments + env, envJava, 0, Modifiers.GEN_NIGHTLY_DOCS)
-createTestTask('genReleaseDocs', 'Generates the Skript documentation website html files for a release.', environments + env, envJava, 0, Modifiers.GEN_RELEASE_DOCS)
-tasks.register('skriptTest') {
-	description = 'Runs tests on all environments.'
-	dependsOn skriptTestJava11, skriptTestJava17, skriptTestJava21
-}
-
-createTestTask('JUnitQuick', 'Runs JUnit tests on one environment being the latest supported Java and Minecraft.', environments + latestJUnitEnv, latestJUnitJava, 0, Modifiers.JUNIT)
-// Disabled as EasyMock 5.2.0 is required for Java 21 support
-// However, we are currently using 5.0.1 (see https://github.com/SkriptLang/Skript/pull/6204#discussion_r1405302009)
-//createTestTask('JUnitJava21', 'Runs JUnit tests on all Java 21 environments.', environments + 'java21', java21, 0, Modifiers.JUNIT)
-createTestTask('JUnitJava17', 'Runs JUnit tests on all Java 17 environments.', environments + 'java17', java17, 0, Modifiers.JUNIT)
-createTestTask('JUnitJava11', 'Runs JUnit tests on all Java 11 environments.', environments + 'java11', java11, 0, Modifiers.JUNIT)
-tasks.register('JUnit') {
-	description = 'Runs JUnit tests on all environments.'
-	dependsOn JUnitJava11, JUnitJava17//, JUnitJava21
-}
 
 // Build flavor configurations
 task githubResources(type: ProcessResources) {

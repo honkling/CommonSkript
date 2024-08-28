@@ -22,7 +22,6 @@ import ch.njol.skript.config.Config;
 import ch.njol.skript.config.Node;
 import ch.njol.skript.config.SectionNode;
 import ch.njol.skript.config.SimpleNode;
-import ch.njol.skript.events.bukkit.PreScriptLoadEvent;
 import ch.njol.skript.lang.Section;
 import ch.njol.skript.lang.SkriptParser;
 import ch.njol.skript.lang.Statement;
@@ -36,7 +35,6 @@ import ch.njol.skript.log.SkriptLogger;
 import ch.njol.skript.sections.SecLoop;
 import ch.njol.skript.structures.StructOptions.OptionsData;
 import ch.njol.skript.util.ExceptionUtils;
-import ch.njol.skript.util.SkriptColor;
 import ch.njol.skript.util.Task;
 import ch.njol.skript.util.Timespan;
 import ch.njol.skript.variables.TypeHints;
@@ -487,8 +485,6 @@ public class ScriptLoader {
 	private static CompletableFuture<ScriptInfo> loadScripts(List<Config> configs, OpenCloseable openCloseable) {
 		if (configs.isEmpty()) // Nothing to load
 			return CompletableFuture.completedFuture(new ScriptInfo());
-
-		Bukkit.getPluginManager().callEvent(new PreScriptLoadEvent(configs));
 		
 		ScriptInfo scriptInfo = new ScriptInfo();
 
@@ -978,7 +974,7 @@ public class ScriptLoader {
 				}
 
 				if (Skript.debug() || subNode.debug())
-					Skript.debug(SkriptColor.replaceColorChar(parser.getIndentation() + stmt.toString(null, true)));
+					Skript.debug(parser.getIndentation() + stmt.toString(null, true));
 
 				items.add(stmt);
 			} else if (subNode instanceof SectionNode) {
@@ -989,7 +985,7 @@ public class ScriptLoader {
 					continue;
 
 				if (Skript.debug() || subNode.debug())
-					Skript.debug(SkriptColor.replaceColorChar(parser.getIndentation() + section.toString(null, true)));
+					Skript.debug(parser.getIndentation() + section.toString(null, true));
 
 				items.add(section);
 

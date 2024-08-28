@@ -18,21 +18,14 @@
  */
 package ch.njol.skript;
 
-import ch.njol.skript.aliases.Aliases;
-import ch.njol.skript.bukkitutil.BurgerHelper;
 import ch.njol.skript.classes.ClassInfo;
-import ch.njol.skript.classes.data.BukkitClasses;
-import ch.njol.skript.classes.data.BukkitEventValues;
 import ch.njol.skript.classes.data.DefaultComparators;
 import ch.njol.skript.classes.data.DefaultConverters;
 import ch.njol.skript.classes.data.DefaultFunctions;
 import ch.njol.skript.classes.data.DefaultOperations;
 import ch.njol.skript.classes.data.JavaClasses;
 import ch.njol.skript.classes.data.SkriptClasses;
-import ch.njol.skript.command.Commands;
 import ch.njol.skript.doc.Documentation;
-import ch.njol.skript.events.EvtSkript;
-import ch.njol.skript.hooks.Hook;
 import ch.njol.skript.lang.Condition;
 import ch.njol.skript.lang.Effect;
 import ch.njol.skript.lang.Expression;
@@ -59,12 +52,6 @@ import ch.njol.skript.log.SkriptLogger;
 import ch.njol.skript.log.Verbosity;
 import ch.njol.skript.registrations.Classes;
 import ch.njol.skript.registrations.EventValues;
-import ch.njol.skript.test.runner.EffObjectives;
-import ch.njol.skript.test.runner.SkriptJUnitTest;
-import ch.njol.skript.test.runner.SkriptTestEvent;
-import ch.njol.skript.test.runner.TestMode;
-import ch.njol.skript.test.runner.TestTracker;
-import ch.njol.skript.timings.SkriptTimings;
 import ch.njol.skript.update.ReleaseManifest;
 import ch.njol.skript.update.ReleaseStatus;
 import ch.njol.skript.update.UpdateManifest;
@@ -76,8 +63,6 @@ import ch.njol.skript.util.Getter;
 import ch.njol.skript.util.Task;
 import ch.njol.skript.util.Utils;
 import ch.njol.skript.util.Version;
-import ch.njol.skript.util.chat.BungeeConverter;
-import ch.njol.skript.util.chat.ChatMessages;
 import ch.njol.skript.variables.Variables;
 import ch.njol.util.Closeable;
 import ch.njol.util.Kleenean;
@@ -90,19 +75,9 @@ import com.google.gson.Gson;
 import org.bstats.bukkit.Metrics;
 import org.bstats.charts.SimplePie;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
-import org.bukkit.Material;
-import org.bukkit.Server;
-import org.bukkit.command.CommandSender;
-import org.bukkit.command.PluginCommand;
-import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.event.player.PlayerCommandPreprocessEvent;
-import org.bukkit.event.player.PlayerJoinEvent;
-import org.bukkit.event.server.PluginDisableEvent;
-import org.bukkit.event.server.ServerCommandEvent;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.PluginDescriptionFile;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -134,7 +109,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -215,21 +189,6 @@ public final class Skript extends JavaPlugin implements Listener {
 	private static Version minecraftVersion = new Version(666), UNKNOWN_VERSION = new Version(666);
 	private static ServerPlatform serverPlatform = ServerPlatform.BUKKIT_UNKNOWN; // Start with unknown... onLoad changes this
 
-	/**
-	 * Check minecraft version and assign it to minecraftVersion field
-	 * This method is created to update MC version before onEnable method
-	 * To fix {@link Utils#HEX_SUPPORTED} being assigned before minecraftVersion is properly assigned
-	 */
-	public static void updateMinecraftVersion() {
-		String bukkitV = Bukkit.getBukkitVersion();
-		Matcher m = Pattern.compile("\\d+\\.\\d+(\\.\\d+)?").matcher(bukkitV);
-		if (!m.find()) {
-			minecraftVersion = new Version(666, 0, 0);
-		} else {
-			minecraftVersion = new Version("" + m.group());
-		}
-	}
-
 	@Nullable
 	private static Version version = null;
 	@Deprecated(forRemoval = true) // TODO this field will be replaced by a proper registry later
@@ -273,91 +232,6 @@ public final class Skript extends JavaPlugin implements Listener {
 	private static boolean using32BitJava() {
 		// Property returned should either be "Java HotSpot(TM) 32-Bit Server VM" or "OpenJDK 32-Bit Server VM" if 32-bit and using OracleJDK/OpenJDK
 		return System.getProperty("java.vm.name").contains("32");
-	}
-
-	/**
-	 * Checks if server software and Minecraft version are supported.
-	 * Prints errors or warnings to console if something is wrong.
-	 * @return Whether Skript can continue loading at all.
-	 */
-	private static boolean checkServerPlatform() {
-		String bukkitV = Bukkit.getBukkitVersion();
-		Matcher m = Pattern.compile("\\d+\\.\\d+(\\.\\d+)?").matcher(bukkitV);
-		if (!m.find()) {
-			Skript.error("The Bukkit version '" + bukkitV + "' does not contain a version number which is required for Skript to enable or disable certain features. " +
-					"Skript will still work, but you might get random errors if you use features that are not available in your version of Bukkit.");
-			minecraftVersion = new Version(666, 0, 0);
-		} else {
-			minecraftVersion = new Version("" + m.group());
-		}
-		Skript.debug("Loading for Minecraft " + minecraftVersion);
-
-		// Check that MC version is supported
-		if (!isRunningMinecraft(1, 9)) {
-			// Prevent loading when not running at least Minecraft 1.9
-			Skript.error("This version of Skript does not work with Minecraft " + minecraftVersion + " and requires Minecraft 1.9.4+");
-			Skript.error("You probably want Skript 2.2 or 2.1 (Google to find where to get them)");
-			Skript.error("Note that those versions are, of course, completely unsupported!");
-			return false;
-		}
-
-		// Check that current server platform is somewhat supported
-		serverPlatform = getServerPlatform();
-		Skript.debug("Server platform: " + serverPlatform);
-		if (!serverPlatform.works) {
-			Skript.error("It seems that this server platform (" + serverPlatform.name + ") does not work with Skript.");
-			if (SkriptConfig.allowUnsafePlatforms.value()) {
-				Skript.error("However, you have chosen to ignore this. Skript will probably still not work.");
-			} else {
-				Skript.error("To prevent potentially unsafe behaviour, Skript has been disabled.");
-				Skript.error("You may re-enable it by adding a configuration option 'allow unsafe platforms: true'");
-				Skript.error("Note that it is unlikely that Skript works correctly even if you do so.");
-				Skript.error("A better idea would be to install Paper or Spigot in place of your current server.");
-				return false;
-			}
-		} else if (!serverPlatform.supported) {
-			Skript.warning("This server platform (" + serverPlatform.name + ") is not supported by Skript.");
-			Skript.warning("It will still probably work, but if it does not, you are on your own.");
-			Skript.warning("Skript officially supports Paper and Spigot.");
-		}
-
-		// If nothing got triggered, everything is probably ok
-		return true;
-	}
-
-	private static final Set<Class<? extends Hook<?>>> disabledHookRegistrations = new HashSet<>();
-	private static boolean finishedLoadingHooks = false;
-
-	/**
-	 * Checks whether a hook has been enabled.
-	 * @param hook The hook to check.
-	 * @return Whether the hook is enabled.
-	 * @see #disableHookRegistration(Class[])
-	 */
-	public static boolean isHookEnabled(Class<? extends Hook<?>> hook) {
-		return !disabledHookRegistrations.contains(hook);
-	}
-
-	/**
-	 * @return whether hooks have been loaded,
-	 * and if {@link #disableHookRegistration(Class[])} won't error because of this.
-	 */
-	public static boolean isFinishedLoadingHooks() {
-		return finishedLoadingHooks;
-	}
-
-	/**
-	 * Disables the registration for the given hook classes. If Skript has been enabled, this method
-	 * will throw an API exception. It should be used in something like {@link JavaPlugin#onLoad()}.
-	 * @param hooks The hooks to disable the registration of.
-	 * @see #isHookEnabled(Class)
-	 */
-	@SafeVarargs
-	public static void disableHookRegistration(Class<? extends Hook<?>>... hooks) {
-		if (finishedLoadingHooks) { // Hooks have been registered if Skript is enabled
-			throw new SkriptAPIException("Disabling hooks is not possible after Skript has been enabled!");
-		}
-		Collections.addAll(disabledHookRegistrations, hooks);
 	}
 
 	/**
@@ -485,18 +359,10 @@ public final class Skript extends JavaPlugin implements Listener {
 		// Load classes which are always safe to use
 		new JavaClasses(); // These may be needed in configuration
 
-		// Check server software, Minecraft version, etc.
-		if (!checkServerPlatform()) {
-			disabled = true; // Nothing was loaded, nothing needs to be unloaded
-			setEnabled(false); // Cannot continue; user got errors in console to tell what happened
-			return;
-		}
-
 		// And then not-so-safe classes
 		Throwable classLoadError = null;
 		try {
 			new SkriptClasses();
-			new BukkitClasses();
 		} catch (Throwable e) {
 			classLoadError = e;
 		}
@@ -505,31 +371,6 @@ public final class Skript extends JavaPlugin implements Listener {
 		// ... but also before platform check, because there is a config option to ignore some errors
 		SkriptConfig.load();
 
-		// Now override the verbosity if test mode is enabled
-		if (TestMode.VERBOSITY != null)
-			SkriptLogger.setVerbosity(Verbosity.valueOf(TestMode.VERBOSITY));
-
-		// Use the updater, now that it has been configured to (not) do stuff
-		if (updater != null) {
-			CommandSender console = Bukkit.getConsoleSender();
-			assert console != null;
-			assert updater != null;
-			updater.updateCheck(console);
-		}
-
-		try {
-			Aliases.load(); // Loaded before anything that might use them
-		} catch (StackOverflowError e) {
-			if (using32BitJava()) {
-				Skript.error("");
-				Skript.error("There was a StackOverflowError that occured while loading aliases.");
-				Skript.error("As you are currently using 32-bit Java, please update to 64-bit Java to resolve the error.");
-				Skript.error("Please report this issue to our GitHub only if updating to 64-bit Java does not fix the issue.");
-				Skript.error("");
-			} else {
-				throw e; // Uh oh, this shouldn't happen. Re-throw the error.
-			}
-		}
 
 		// If loading can continue (platform ok), check for potentially thrown error
 		if (classLoadError != null) {
@@ -538,20 +379,10 @@ public final class Skript extends JavaPlugin implements Listener {
 			return;
 		}
 
-		PluginCommand skriptCommand = getCommand("skript");
-		assert skriptCommand != null; // It is defined, unless build is corrupted or something like that
-		skriptCommand.setExecutor(new SkriptCommand());
-		skriptCommand.setTabCompleter(new SkriptCommandTabCompleter());
-
-		// Load Bukkit stuff. It is done after platform check, because something might be missing!
-		new BukkitEventValues();
-
 		new DefaultComparators();
 		new DefaultConverters();
 		new DefaultFunctions();
 		new DefaultOperations();
-
-		ChatMessages.registerListeners();
 
 		try {
 			getAddonInstance().loadClasses("ch.njol.skript",
@@ -562,369 +393,89 @@ public final class Skript extends JavaPlugin implements Listener {
 			return;
 		}
 
-		Commands.registerListeners();
-
 		if (logNormal())
 			info(" " + Language.get("skript.copyright"));
 
-		final long tick = testing() ? Bukkit.getWorlds().get(0).getFullTime() : 0;
-		Bukkit.getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
-			@SuppressWarnings("synthetic-access")
+		stopAcceptingRegistrations();
+
+
+		Documentation.generate(); // TODO move to test classes?
+
+		// Variable loading
+		if (logNormal())
+			info("Loading variables...");
+		long vls = System.currentTimeMillis();
+
+		LogHandler h = SkriptLogger.startLogHandler(new ErrorDescLogHandler() {
 			@Override
-			public void run() {
-				assert Bukkit.getWorlds().get(0).getFullTime() == tick;
-
-				// Load hooks from Skript jar
-				try {
-					try (JarFile jar = new JarFile(getFile())) {
-						for (JarEntry e : new EnumerationIterable<>(jar.entries())) {
-							if (e.getName().startsWith("ch/njol/skript/hooks/") && e.getName().endsWith("Hook.class") && StringUtils.count("" + e.getName(), '/') <= 5) {
-								final String c = e.getName().replace('/', '.').substring(0, e.getName().length() - ".class".length());
-								try {
-									Class<?> hook = Class.forName(c, true, getClassLoader());
-									if (Hook.class.isAssignableFrom(hook) && !Modifier.isAbstract(hook.getModifiers()) && isHookEnabled((Class<? extends Hook<?>>) hook)) {
-										hook.getDeclaredConstructor().setAccessible(true);
-										hook.getDeclaredConstructor().newInstance();
-									}
-								} catch (ClassNotFoundException ex) {
-									Skript.exception(ex, "Cannot load class " + c);
-								} catch (ExceptionInInitializerError err) {
-									Skript.exception(err.getCause(), "Class " + c + " generated an exception while loading");
-								} catch (Exception ex) {
-									Skript.exception(ex, "Exception initializing hook: " + c);
-								}
-							}
-						}
-					}
-				} catch (IOException e) {
-					error("Error while loading plugin hooks" + (e.getLocalizedMessage() == null ? "" : ": " + e.getLocalizedMessage()));
-					Skript.exception(e);
+			public LogResult log(final LogEntry entry) {
+				super.log(entry);
+				if (entry.level.intValue() >= Level.SEVERE.intValue()) {
+					logEx(entry.message); // no [Skript] prefix
+					return LogResult.DO_NOT_LOG;
+				} else {
+					return LogResult.LOG;
 				}
-				finishedLoadingHooks = true;
+			}
 
-				if (TestMode.ENABLED) {
-					info("Preparing Skript for testing...");
-					tainted = true;
-					try {
-						getAddonInstance().loadClasses("ch.njol.skript.test.runner");
-						if (TestMode.JUNIT)
-							getAddonInstance().loadClasses("org.skriptlang.skript.test.junit.registration");
-					} catch (IOException e) {
-						Skript.exception("Failed to load testing environment.");
-						Bukkit.getServer().shutdown();
-					}
-				}
+			@Override
+			protected void beforeErrors() {
+				logEx();
+				logEx("===!!!=== Skript variable load error ===!!!===");
+				logEx("Unable to load (all) variables:");
+			}
 
-				stopAcceptingRegistrations();
-
-
-				Documentation.generate(); // TODO move to test classes?
-
-				// Variable loading
-				if (logNormal())
-					info("Loading variables...");
-				long vls = System.currentTimeMillis();
-
-				LogHandler h = SkriptLogger.startLogHandler(new ErrorDescLogHandler() {
-					@Override
-					public LogResult log(final LogEntry entry) {
-						super.log(entry);
-						if (entry.level.intValue() >= Level.SEVERE.intValue()) {
-							logEx(entry.message); // no [Skript] prefix
-							return LogResult.DO_NOT_LOG;
-						} else {
-							return LogResult.LOG;
-						}
-					}
-
-					@Override
-					protected void beforeErrors() {
-						logEx();
-						logEx("===!!!=== Skript variable load error ===!!!===");
-						logEx("Unable to load (all) variables:");
-					}
-
-					@Override
-					protected void afterErrors() {
-						logEx();
-						logEx("Skript will work properly, but old variables might not be available at all and new ones may or may not be saved until Skript is able to create a backup of the old file and/or is able to connect to the database (which requires a restart of Skript)!");
-						logEx();
-					}
-				});
-
-				try (CountingLogHandler c = new CountingLogHandler(SkriptLogger.SEVERE).start()) {
-					if (!Variables.load())
-						if (c.getCount() == 0)
-							error("(no information available)");
-				} finally {
-					h.stop();
-				}
-
-				long vld = System.currentTimeMillis() - vls;
-				if (logNormal())
-					info("Loaded " + Variables.numVariables() + " variables in " + ((vld / 100) / 10.) + " seconds");
-
-				// Skript initialization done
-				debug("Early init done");
-
-				if (TestMode.ENABLED) {
-					Bukkit.getScheduler().runTaskLater(Skript.this, () -> info("Skript testing environment enabled, starting soon..."), 1);
-					// Ignore late init (scripts, etc.) in test mode
-					Bukkit.getScheduler().runTaskLater(Skript.this, () -> {
-						// Delay is in Minecraft ticks.
-						long shutdownDelay = 0;
-						if (TestMode.GEN_DOCS) {
-							Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "skript gen-docs");
-						} else if (TestMode.DEV_MODE) { // Developer controlled environment.
-							info("Test development mode enabled. Test scripts are at " + TestMode.TEST_DIR);
-							return;
-						} else {
-							info("Loading all tests from " + TestMode.TEST_DIR);
-
-							// Treat parse errors as fatal testing failure
-							CountingLogHandler errorCounter = new CountingLogHandler(Level.SEVERE);
-							try {
-								errorCounter.start();
-								File testDir = TestMode.TEST_DIR.toFile();
-								assert testDir != null;
-								ScriptLoader.loadScripts(testDir, errorCounter);
-							} finally {
-								errorCounter.stop();
-							}
-
-							Bukkit.getPluginManager().callEvent(new SkriptTestEvent());
-							if (errorCounter.getCount() > 0) {
-								TestTracker.testStarted("parse scripts");
-								TestTracker.testFailed(errorCounter.getCount() + " error(s) found");
-							}
-							if (errored) { // Check for exceptions thrown while script was executing
-								TestTracker.testStarted("run scripts");
-								TestTracker.testFailed("exception was thrown during execution");
-							}
-							if (TestMode.JUNIT) {
-								info("Running all JUnit tests...");
-								long milliseconds = 0, tests = 0, fails = 0, ignored = 0, size = 0;
-								try {
-									List<Class<?>> classes = Lists.newArrayList(Utils.getClasses(Skript.getInstance(), "org.skriptlang.skript.test", "tests"));
-									// Don't attempt to run inner/anonymous classes as tests
-									classes.removeIf(Class::isAnonymousClass);
-									classes.removeIf(Class::isLocalClass);
-									// Test that requires package access. This is only present when compiling with src/test.
-									classes.add(Class.forName("ch.njol.skript.variables.FlatFileStorageTest"));
-									size = classes.size();
-									for (Class<?> clazz : classes) {
-										// Reset class SkriptJUnitTest which stores test requirements.
-										String test = clazz.getName();
-										SkriptJUnitTest.setCurrentJUnitTest(test);
-										SkriptJUnitTest.setShutdownDelay(0);
-
-										info("Running JUnit test '" + test + "'");
-										Result junit = JUnitCore.runClasses(clazz);
-										TestTracker.testStarted("JUnit: '" + test + "'");
-
-										/**
-										 * Usage of @After is pointless if the JUnit class requires delay. As the @After will happen instantly.
-										 * The JUnit must override the 'cleanup' method to avoid Skript automatically cleaning up the test data.
-										 */
-										boolean overrides = false;
-										for (Method method : clazz.getDeclaredMethods()) {
-											if (!method.isAnnotationPresent(After.class))
-												continue;
-											if (SkriptJUnitTest.getShutdownDelay() > 1)
-												warning("Using @After in JUnit classes, happens instantaneously, and JUnit class '" + test + "' requires a delay. Do your test cleanup in the script junit file or 'cleanup' method.");
-											if (method.getName().equals("cleanup"))
-												overrides = true;
-										}
-										if (SkriptJUnitTest.getShutdownDelay() > 1 && !overrides)
-											error("The JUnit class '" + test + "' does not override the method 'cleanup' thus the test data will instantly be cleaned up. " +
-													"This JUnit test requires longer shutdown time: " + SkriptJUnitTest.getShutdownDelay());
-
-										// Collect all data from the current JUnit test.
-										shutdownDelay = Math.max(shutdownDelay, SkriptJUnitTest.getShutdownDelay());
-										tests += junit.getRunCount();
-										milliseconds += junit.getRunTime();
-										ignored += junit.getIgnoreCount();
-										fails += junit.getFailureCount();
-
-										// If JUnit failures are present, add them to the TestTracker.
-										junit.getFailures().forEach(failure -> {
-											String message = failure.getMessage() == null ? "" : " " + failure.getMessage();
-											TestTracker.JUnitTestFailed(test, message);
-											Skript.exception(failure.getException(), "JUnit test '" + failure.getTestHeader() + " failed.");
-										});
-										if (SkriptJUnitTest.class.isAssignableFrom(clazz))
-											((SkriptJUnitTest) clazz.getConstructor().newInstance()).cleanup();
-										SkriptJUnitTest.clearJUnitTest();
-									}
-								} catch (IOException e) {
-									Skript.exception(e, "Failed to execute JUnit runtime tests.");
-								} catch (ClassNotFoundException e) {
-									// Should be the Skript test jar gradle task.
-									assert false : "Class 'ch.njol.skript.variables.FlatFileStorageTest' was not found.";
-								} catch (InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException | NoSuchMethodException | SecurityException e) {
-									Skript.exception(e, "Failed to initalize test JUnit classes.");
-								}
-								if (ignored > 0)
-									Skript.warning("There were " + ignored + " ignored test cases! This can mean they are not properly setup in order in that class!");
-
-								info("Completed " + tests + " JUnit tests in " + size + " classes with " + fails + " failures in " + milliseconds + " milliseconds.");
-							}
-						}
-						double display = shutdownDelay / 20;
-						info("Testing done, shutting down the server in " + display + " second" + (display <= 1D ? "" : "s") + "...");
-						// Delay server shutdown to stop the server from crashing because the current tick takes a long time due to all the tests
-						Bukkit.getScheduler().runTaskLater(Skript.this, () -> {
-							if (TestMode.JUNIT && !EffObjectives.isJUnitComplete())
-								EffObjectives.fail();
-
-							info("Collecting results to " + TestMode.RESULTS_FILE);
-							String results = new Gson().toJson(TestTracker.collectResults());
-							try {
-								Files.write(TestMode.RESULTS_FILE, results.getBytes(StandardCharsets.UTF_8));
-							} catch (IOException e) {
-								Skript.exception(e, "Failed to write test results.");
-							}
-
-							Bukkit.getServer().shutdown();
-						}, shutdownDelay);
-					}, 100);
-				}
-
-				// Enable metrics and register custom charts
-				Metrics metrics = new Metrics(Skript.this, 722); // 722 is our bStats plugin ID
-				metrics.addCustomChart(new SimplePie("pluginLanguage", Language::getName));
-				metrics.addCustomChart(new SimplePie("effectCommands", () ->
-					SkriptConfig.enableEffectCommands.value().toString()
-				));
-				metrics.addCustomChart(new SimplePie("uuidsWithPlayers", () ->
-					SkriptConfig.usePlayerUUIDsInVariableNames.value().toString()
-				));
-				metrics.addCustomChart(new SimplePie("playerVariableFix", () ->
-					SkriptConfig.enablePlayerVariableFix.value().toString()
-				));
-				metrics.addCustomChart(new SimplePie("logVerbosity", () ->
-					SkriptConfig.verbosity.value().name().toLowerCase(Locale.ENGLISH).replace('_', ' ')
-				));
-				metrics.addCustomChart(new SimplePie("pluginPriority", () ->
-					SkriptConfig.defaultEventPriority.value().name().toLowerCase(Locale.ENGLISH).replace('_', ' ')
-				));
-				metrics.addCustomChart(new SimplePie("logPlayerCommands", () ->
-					String.valueOf((SkriptConfig.logEffectCommands.value() || SkriptConfig.logPlayerCommands.value()))
-				));
-				metrics.addCustomChart(new SimplePie("maxTargetDistance", () ->
-					SkriptConfig.maxTargetBlockDistance.value().toString()
-				));
-				metrics.addCustomChart(new SimplePie("softApiExceptions", () ->
-					SkriptConfig.apiSoftExceptions.value().toString()
-				));
-				metrics.addCustomChart(new SimplePie("timingsStatus", () -> {
-					if (!Skript.classExists("co.aikar.timings.Timings"))
-						return "unsupported";
-					return SkriptConfig.enableTimings.value().toString();
-				}));
-				metrics.addCustomChart(new SimplePie("parseLinks", () ->
-					ChatMessages.linkParseMode.name().toLowerCase(Locale.ENGLISH)
-				));
-				metrics.addCustomChart(new SimplePie("colorResetCodes", () ->
-					SkriptConfig.colorResetCodes.value().toString()
-				));
-				metrics.addCustomChart(new SimplePie("functionsWithNulls", () ->
-					SkriptConfig.executeFunctionsWithMissingParams.value().toString()
-				));
-				metrics.addCustomChart(new SimplePie("buildFlavor", () -> {
-					if (updater != null)
-						return updater.getCurrentRelease().flavor;
-					return "unknown";
-				}));
-				metrics.addCustomChart(new SimplePie("updateCheckerEnabled", () ->
-					SkriptConfig.checkForNewVersion.value().toString()
-				));
-				metrics.addCustomChart(new SimplePie("releaseChannel", SkriptConfig.releaseChannel::value));
-				Skript.metrics = metrics;
-
-				/*
-				 * Start loading scripts
-				 */
-				Date start = new Date();
-				CountingLogHandler logHandler = new CountingLogHandler(Level.SEVERE);
-
-				File scriptsFolder = getScriptsFolder();
-				ScriptLoader.updateDisabledScripts(scriptsFolder.toPath());
-				ScriptLoader.loadScripts(scriptsFolder, logHandler)
-					.thenAccept(scriptInfo -> {
-						try {
-							if (logHandler.getCount() == 0)
-								Skript.info(m_no_errors.toString());
-							if (scriptInfo.files == 0)
-								Skript.warning(m_no_scripts.toString());
-							if (Skript.logNormal() && scriptInfo.files > 0)
-								Skript.info(m_scripts_loaded.toString(
-									scriptInfo.files,
-									scriptInfo.structures,
-									start.difference(new Date())
-								));
-
-							Skript.info(m_finished_loading.toString());
-
-							// EvtSkript.onSkriptStart should be called on main server thread
-							if (!ScriptLoader.isAsync()) {
-								EvtSkript.onSkriptStart();
-
-								// Suppresses the "can't keep up" warning after loading all scripts
-								// Only for non-asynchronous loading
-								Filter filter = record -> {
-									if (record == null)
-										return false;
-									return record.getMessage() == null
-										|| !record.getMessage().toLowerCase(Locale.ENGLISH).startsWith("can't keep up!");
-								};
-								BukkitLoggerFilter.addFilter(filter);
-								Bukkit.getScheduler().scheduleSyncDelayedTask(
-									Skript.this,
-									() -> BukkitLoggerFilter.removeFilter(filter),
-									1);
-							} else {
-								Bukkit.getScheduler().scheduleSyncDelayedTask(Skript.this,
-									EvtSkript::onSkriptStart);
-							}
-						} catch (Exception e) {
-							// Something went wrong, we need to make sure the exception is printed
-							throw Skript.exception(e);
-						}
-					});
-
+			@Override
+			protected void afterErrors() {
+				logEx();
+				logEx("Skript will work properly, but old variables might not be available at all and new ones may or may not be saved until Skript is able to create a backup of the old file and/or is able to connect to the database (which requires a restart of Skript)!");
+				logEx();
 			}
 		});
 
-		Bukkit.getPluginManager().registerEvents(new Listener() {
-			@EventHandler
-			public void onJoin(final PlayerJoinEvent e) {
-				if (e.getPlayer().hasPermission("skript.admin")) {
-					new Task(Skript.this, 0) {
-						@Override
-						public void run() {
-							Player p = e.getPlayer();
-							SkriptUpdater updater = getUpdater();
-							if (updater == null)
-								return;
+		try (CountingLogHandler c = new CountingLogHandler(SkriptLogger.SEVERE).start()) {
+			if (!Variables.load())
+				if (c.getCount() == 0)
+					error("(no information available)");
+		} finally {
+			h.stop();
+		}
 
-							// Don't actually check for updates to avoid breaking Github rate limit
-							if (updater.getReleaseStatus() == ReleaseStatus.OUTDATED) {
-								// Last check indicated that an update is available
-								UpdateManifest update = updater.getUpdateManifest();
-								assert update != null; // Because we just checked that one is available
-								Skript.info(p, "" + SkriptUpdater.m_update_available.toString(update.id, Skript.getVersion()));
-								p.spigot().sendMessage(BungeeConverter.convert(ChatMessages.parseToArray(
-										"Download it at: <aqua><u><link:" + update.downloadUrl + ">" + update.downloadUrl)));
-							}
-						}
-					};
+		long vld = System.currentTimeMillis() - vls;
+		if (logNormal())
+			info("Loaded " + Variables.numVariables() + " variables in " + ((vld / 100) / 10.) + " seconds");
+
+		// Skript initialization done
+		debug("Early init done");
+
+		/*
+		 * Start loading scripts
+		 */
+		Date start = new Date();
+		CountingLogHandler logHandler = new CountingLogHandler(Level.SEVERE);
+
+		File scriptsFolder = getScriptsFolder();
+		ScriptLoader.updateDisabledScripts(scriptsFolder.toPath());
+		ScriptLoader.loadScripts(scriptsFolder, logHandler)
+			.thenAccept(scriptInfo -> {
+				try {
+					if (logHandler.getCount() == 0)
+						Skript.info(m_no_errors.toString());
+					if (scriptInfo.files == 0)
+						Skript.warning(m_no_scripts.toString());
+					if (Skript.logNormal() && scriptInfo.files > 0)
+						Skript.info(m_scripts_loaded.toString(
+							scriptInfo.files,
+							scriptInfo.structures,
+							start.difference(new Date())
+						));
+
+					Skript.info(m_finished_loading.toString());
+				} catch (Exception e) {
+					// Something went wrong, we need to make sure the exception is printed
+					throw Skript.exception(e);
 				}
-			}
-		}, this);
-
-		// Tell Timings that we are here!
-		SkriptTimings.setSkript(this);
+			});
 	}
 
 	/**
@@ -972,20 +523,6 @@ public final class Skript extends JavaPlugin implements Listener {
 				}
 			}
 
-			// Use BurgerHelper to create some mappings, then dump them as JSON
-			try {
-				BurgerHelper burger = new BurgerHelper(burgerInput);
-				Map<String,Material> materials = burger.mapMaterials();
-				Map<Integer,Material> ids = BurgerHelper.mapIds();
-
-				Gson gson = new Gson();
-				Files.write(folder.resolve("materials_mappings.json"), gson.toJson(materials)
-						.getBytes(StandardCharsets.UTF_8), StandardOpenOption.CREATE);
-				Files.write(folder.resolve("id_mappings.json"), gson.toJson(ids)
-						.getBytes(StandardCharsets.UTF_8), StandardOpenOption.CREATE);
-			} catch (IOException e) {
-				Skript.exception(e);
-			}
 		}
 	}
 
@@ -998,30 +535,6 @@ public final class Skript extends JavaPlugin implements Listener {
 	 */
 	public static boolean isRunningCraftBukkit() {
 		return serverPlatform == ServerPlatform.BUKKIT_CRAFTBUKKIT;
-	}
-
-	/**
-	 * @return Whether this server is running Minecraft <tt>major.minor</tt> or higher
-	 */
-	public static boolean isRunningMinecraft(final int major, final int minor) {
-		if (minecraftVersion.compareTo(UNKNOWN_VERSION) == 0) { // Make sure minecraftVersion is properly assigned.
-			updateMinecraftVersion();
-		}
-		return minecraftVersion.compareTo(major, minor) >= 0;
-	}
-
-	public static boolean isRunningMinecraft(final int major, final int minor, final int revision) {
-		if (minecraftVersion.compareTo(UNKNOWN_VERSION) == 0) {
-			updateMinecraftVersion();
-		}
-		return minecraftVersion.compareTo(major, minor, revision) >= 0;
-	}
-
-	public static boolean isRunningMinecraft(final Version v) {
-		if (minecraftVersion.compareTo(UNKNOWN_VERSION) == 0) {
-			updateMinecraftVersion();
-		}
-		return minecraftVersion.compareTo(v) >= 0;
 	}
 
 	/**
@@ -1132,81 +645,18 @@ public final class Skript extends JavaPlugin implements Listener {
 		closeOnDisable.add(closeable);
 	}
 
-	@SuppressWarnings("unused")
-	@EventHandler
-	public void onPluginDisable(PluginDisableEvent event) {
-		Plugin plugin = event.getPlugin();
-		PluginDescriptionFile descriptionFile = plugin.getDescription();
-		if (descriptionFile.getDepend().contains("Skript") || descriptionFile.getSoftDepend().contains("Skript")) {
-			// An addon being disabled, check if server is being stopped
-			if (!isServerRunning()) {
-				beforeDisable();
-			}
-		}
-	}
-
-	private static final boolean IS_STOPPING_EXISTS;
 	@Nullable
 	private static Method IS_RUNNING;
 	@Nullable
 	private static Object MC_SERVER;
 
-	static {
-		IS_STOPPING_EXISTS = methodExists(Server.class, "isStopping");
-
-		if (!IS_STOPPING_EXISTS) {
-			Server server = Bukkit.getServer();
-			Class<?> clazz = server.getClass();
-
-			Method serverMethod;
-			try {
-				serverMethod = clazz.getMethod("getServer");
-			} catch (NoSuchMethodException e) {
-				throw new RuntimeException(e);
-			}
-
-			try {
-				MC_SERVER = serverMethod.invoke(server);
-			} catch (IllegalAccessException | InvocationTargetException e) {
-				throw new RuntimeException(e);
-			}
-
-			try {
-				// Spigot removed the mapping for this method in 1.18, so its back to obfuscated method
-				// 1.19 mapping is u and 1.18 is v
-				String isRunningMethod = "isRunning";
-
-				if (Skript.isRunningMinecraft(1, 20, 5)) {
-					isRunningMethod = "x";
-				} else if (Skript.isRunningMinecraft(1, 20)) {
-					isRunningMethod = "v";
-				} else if (Skript.isRunningMinecraft(1, 19)) {
-					isRunningMethod = "u";
-				} else if (Skript.isRunningMinecraft(1, 18)) {
-					isRunningMethod = "v";
-				}
-				IS_RUNNING = MC_SERVER.getClass().getMethod(isRunningMethod);
-			} catch (NoSuchMethodException e) {
-				throw new RuntimeException(e);
-			}
-		}
-	}
-
 	@SuppressWarnings("ConstantConditions")
 	private boolean isServerRunning() {
-		if (IS_STOPPING_EXISTS)
-			return !Bukkit.getServer().isStopping();
-
-		try {
-			return (boolean) IS_RUNNING.invoke(MC_SERVER);
-		} catch (IllegalAccessException | InvocationTargetException e) {
-			throw new RuntimeException(e);
-		}
+		return false;
 	}
 
 	private void beforeDisable() {
 		partDisabled = true;
-		EvtSkript.onSkriptStop(); // TODO [code style] warn user about delays in Skript stop events
 
 		ScriptLoader.unloadScripts(ScriptLoader.getLoadedScripts());
 	}
@@ -1222,8 +672,6 @@ public final class Skript extends JavaPlugin implements Listener {
 			beforeDisable();
 		}
 
-		Bukkit.getScheduler().cancelTasks(this);
-
 		for (Closeable c : closeOnDisable) {
 			try {
 				c.close();
@@ -1236,16 +684,6 @@ public final class Skript extends JavaPlugin implements Listener {
 	// ================ CONSTANTS, OPTIONS & OTHER ================
 
 	public final static String SCRIPTSFOLDER = "scripts";
-
-	public static void outdatedError() {
-		error("Skript v" + getInstance().getDescription().getVersion() + " is not fully compatible with Bukkit " + Bukkit.getVersion() + ". Some feature(s) will be broken until you update Skript.");
-	}
-
-	public static void outdatedError(final Exception e) {
-		outdatedError();
-		if (testing())
-			e.printStackTrace();
-	}
 
 	/**
 	 * A small value, useful for comparing doubles or floats.
@@ -1559,34 +997,6 @@ public final class Skript extends JavaPlugin implements Listener {
 
 	// ================ COMMANDS ================
 
-	/**
-	 * Dispatches a command with calling command events
-	 *
-	 * @param sender
-	 * @param command
-	 * @return Whether the command was run
-	 */
-	public static boolean dispatchCommand(final CommandSender sender, final String command) {
-		try {
-			if (sender instanceof Player) {
-				final PlayerCommandPreprocessEvent e = new PlayerCommandPreprocessEvent((Player) sender, "/" + command);
-				Bukkit.getPluginManager().callEvent(e);
-				if (e.isCancelled() || !e.getMessage().startsWith("/"))
-					return false;
-				return Bukkit.dispatchCommand(e.getPlayer(), e.getMessage().substring(1));
-			} else {
-				final ServerCommandEvent e = new ServerCommandEvent(sender, command);
-				Bukkit.getPluginManager().callEvent(e);
-				if (e.getCommand().isEmpty() || e.isCancelled())
-					return false;
-				return Bukkit.dispatchCommand(e.getSender(), e.getCommand());
-			}
-		} catch (final Exception ex) {
-			ex.printStackTrace(); // just like Bukkit
-			return false;
-		}
-	}
-
 	// ================ LOGGING ================
 
 	public static boolean logNormal() {
@@ -1774,12 +1184,6 @@ public final class Skript extends JavaPlugin implements Listener {
 			logEx("");
 			logEx("Just testing things? Good. Please report this bug, so that we can fix it before a stable release.");
 			logEx("Issue tracker: " + issuesUrl);
-		} else if (!isRunningMinecraft(1, 9)) {
-			logEx("You are running an outdated Minecraft version not supported by Skript.");
-			logEx("Please update to Minecraft 1.9.4 or later or fix this yourself and send us a pull request.");
-			logEx("Alternatively, use an older Skript version; do note that those are also unsupported by us.");
-			logEx("");
-			logEx("Again, we do not support Minecraft versions this old.");
 		} else if (!serverPlatform.supported){
 			logEx("Your server platform appears to be unsupported by Skript. It might not work reliably.");
 			logEx("You can report this at " + issuesUrl + ". However, we may be unable to fix the issue.");
@@ -1859,8 +1263,6 @@ public final class Skript extends JavaPlugin implements Listener {
 		} else {
 			logEx("  Skript: " + getVersion() + " (unknown; likely custom)");
 		}
-		logEx("  Bukkit: " + Bukkit.getBukkitVersion());
-		logEx("  Minecraft: " + getMinecraftVersion());
 		logEx("  Java: " + System.getProperty("java.version") + " (" + System.getProperty("java.vm.name") + " " + System.getProperty("java.vm.version") + ")");
 		logEx("  OS: " + System.getProperty("os.name") + " " + System.getProperty("os.arch") + " " + System.getProperty("os.version"));
 		logEx();
@@ -1877,7 +1279,6 @@ public final class Skript extends JavaPlugin implements Listener {
 		logEx("Thread: " + (thread == null ? Thread.currentThread() : thread).getName());
 		logEx();
 		logEx("Language: " + Language.getName());
-		logEx("Link parse mode: " + ChatMessages.linkParseMode);
 		logEx();
 		logEx("End of Error.");
 		logEx();
@@ -1898,37 +1299,6 @@ public final class Skript extends JavaPlugin implements Listener {
 
 	public static String getSkriptPrefix() {
 		return SKRIPT_PREFIX_MESSAGE.getValueOrDefault("<grey>[<gold>Skript<grey>] <reset>");
-	}
-
-	public static void info(final CommandSender sender, final String info) {
-		sender.sendMessage(Utils.replaceEnglishChatStyles(getSkriptPrefix() + info));
-	}
-
-	/**
-	 * @param message
-	 * @param permission
-	 * @see #adminBroadcast(String)
-	 */
-	public static void broadcast(final String message, final String permission) {
-		Bukkit.broadcast(Utils.replaceEnglishChatStyles(getSkriptPrefix() + message), permission);
-	}
-
-	public static void adminBroadcast(final String message) {
-		broadcast(message, "skript.admin");
-	}
-
-	/**
-	 * Similar to {@link #info(CommandSender, String)} but no [Skript] prefix is added.
-	 *
-	 * @param sender
-	 * @param info
-	 */
-	public static void message(final CommandSender sender, final String info) {
-		sender.sendMessage(Utils.replaceEnglishChatStyles(info));
-	}
-
-	public static void error(final CommandSender sender, final String error) {
-		sender.sendMessage(Utils.replaceEnglishChatStyles(getSkriptPrefix() + ChatColor.DARK_RED + error));
 	}
 
 	/**

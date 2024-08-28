@@ -23,25 +23,15 @@ import ch.njol.skript.config.EnumParser;
 import ch.njol.skript.config.Option;
 import ch.njol.skript.config.OptionSection;
 import ch.njol.skript.config.SectionNode;
-import ch.njol.skript.hooks.Hook;
-import ch.njol.skript.hooks.VaultHook;
-import ch.njol.skript.hooks.regions.GriefPreventionHook;
-import ch.njol.skript.hooks.regions.PreciousStonesHook;
-import ch.njol.skript.hooks.regions.ResidenceHook;
-import ch.njol.skript.hooks.regions.WorldGuardHook;
 import ch.njol.skript.lang.function.Function;
 import ch.njol.skript.localization.Language;
 import ch.njol.skript.log.SkriptLogger;
 import ch.njol.skript.log.Verbosity;
-import ch.njol.skript.timings.SkriptTimings;
 import ch.njol.skript.update.ReleaseChannel;
 import ch.njol.skript.util.FileUtils;
 import ch.njol.skript.util.Timespan;
 import ch.njol.skript.util.Version;
-import ch.njol.skript.util.chat.ChatMessages;
-import ch.njol.skript.util.chat.LinkParseMode;
 import ch.njol.skript.variables.Variables;
-import co.aikar.timings.Timings;
 import org.bukkit.event.EventPriority;
 import org.eclipse.jdt.annotation.Nullable;
 
@@ -53,8 +43,6 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Locale;
-import java.util.regex.Pattern;
-import java.util.regex.PatternSyntaxException;
 
 /**
  * Important: don't save values from the config, a '/skript reload config/configs/all' won't work correctly otherwise!
@@ -182,8 +170,6 @@ public class SkriptConfig {
 	 */
 	public static final Option<Integer> numberAccuracy = new Option<>("number accuracy", 2);
 	
-	public static final Option<Integer> maxTargetBlockDistance = new Option<>("maximum target block distance", 100);
-	
 	public static final Option<Boolean> caseSensitive = new Option<>("case sensitive", false);
 	public static final Option<Boolean> allowFunctionsBeforeDefs = new Option<>("allow function calls before definations", false)
 			.optional(true);
@@ -204,65 +190,9 @@ public class SkriptConfig {
 			.optional(true);
 	
 	public static final Option<Boolean> apiSoftExceptions = new Option<>("soft api exceptions", false);
-	
-	public static final Option<Boolean> enableTimings = new Option<>("enable timings", false)
-			.setter(t -> {
-				if (!Skript.classExists("co.aikar.timings.Timings")) { // Check for Timings
-					if (t) // Warn the server admin that timings won't work
-						Skript.warning("Timings cannot be enabled! You are running Bukkit/Spigot, but Paper is required.");
-					SkriptTimings.setEnabled(false); // Just to be sure, deactivate timings support completely
-					return;
-				}
-				if (Timings.class.isAnnotationPresent(Deprecated.class)) { // check for deprecated Timings
-					if (t) // Warn the server admin that timings won't work
-						Skript.warning("Timings cannot be enabled! Paper no longer supports Timings as of 1.19.4.");
-					SkriptTimings.setEnabled(false); // Just to be sure, deactivate timings support completely
-					return;
-				}
-				// If we get here, we can safely enable timings
-				if (t)
-					Skript.info("Timings support enabled!");
-				SkriptTimings.setEnabled(t); // Config option will be used
-			});
-	
-	public static final Option<String> parseLinks = new Option<>("parse links in chat messages", "disabled")
-			.setter(t -> {
-				try {
-					switch (t) {
-						case "false":
-						case "disabled":
-							ChatMessages.linkParseMode = LinkParseMode.DISABLED;
-							break;
-						case "true":
-						case "lenient":
-							ChatMessages.linkParseMode = LinkParseMode.LENIENT;
-							break;
-						case "strict":
-							ChatMessages.linkParseMode = LinkParseMode.STRICT;
-							break;
-						default:
-							ChatMessages.linkParseMode = LinkParseMode.DISABLED;
-							Skript.warning("Unknown link parse mode: " + t + ", please use disabled, strict or lenient");
-					}
-				} catch (Error e) {
-					// Ignore it, we're on unsupported server platform and class loading failed
-				}
-			});
 
 	public static final Option<Boolean> caseInsensitiveVariables = new Option<>("case-insensitive variables", true)
 			.setter(t -> Variables.caseInsensitiveVariables = t);
-
-	public static final Option<Boolean> caseInsensitiveCommands = new Option<>("case-insensitive commands", false)
-		.optional(true);
-	
-	public static final Option<Boolean> colorResetCodes = new Option<>("color codes reset formatting", true)
-			.setter(t -> {
-				try {
-					ChatMessages.colorResetCodes = t;
-				} catch (Error e) {
-					// Ignore it, we're on unsupported server platform and class loading failed
-				}
-			});
 
 	public static final Option<String> scriptLoaderThreadSize = new Option<>("script loader thread size", "0")
 			.setter(s -> {
@@ -285,9 +215,6 @@ public class SkriptConfig {
 	
 	public static final Option<Boolean> allowUnsafePlatforms = new Option<>("allow unsafe platforms", false)
 			.optional(true);
-
-	public static final Option<Boolean> keepLastUsageDates = new Option<>("keep command last usage dates", false)
-			.optional(true);
 	
 	public static final Option<Boolean> loadDefaultAliases = new Option<>("load default aliases", true)
 			.optional(true);
@@ -295,54 +222,6 @@ public class SkriptConfig {
 	public static final Option<Boolean> executeFunctionsWithMissingParams = new Option<>("execute functions with missing parameters", true)
 			.optional(true)
 			.setter(t -> Function.executeWithNulls = t);
-
-	public final static Option<Boolean> disableHookVault = new Option<>("disable hooks.vault", false)
-		.optional(true)
-		.setter(value -> {
-			userDisableHooks(VaultHook.class, value);
-		});
-	public final static Option<Boolean> disableHookGriefPrevention = new Option<>("disable hooks.regions.grief prevention", false)
-		.optional(true)
-		.setter(value -> {
-			userDisableHooks(GriefPreventionHook.class, value);
-		});
-	public final static Option<Boolean> disableHookPreciousStones = new Option<>("disable hooks.regions.precious stones", false)
-		.optional(true)
-		.setter(value -> {
-			userDisableHooks(PreciousStonesHook.class, value);
-		});
-	public final static Option<Boolean> disableHookResidence = new Option<>("disable hooks.regions.residence", false)
-		.optional(true)
-		.setter(value -> {
-			userDisableHooks(ResidenceHook.class, value);
-		});
-	public final static Option<Boolean> disableHookWorldGuard = new Option<>("disable hooks.regions.worldguard", false)
-		.optional(true)
-		.setter(value -> {
-			userDisableHooks(WorldGuardHook.class, value);
-		});
-	/**
-	 * Disables the specified hook depending on the option value, or gives an error if this isn't allowed at this time.
-	 */
-	private static void userDisableHooks(Class<? extends Hook<?>> hookClass, boolean value) {
-		if (Skript.isFinishedLoadingHooks()) {
-			Skript.error("Hooks cannot be disabled once the server has started. " +
-				"Please restart the server to disable the hooks.");
-			return;
-		}
-		if (value) {
-			Skript.disableHookRegistration(hookClass);
-		}
-	}
-
-	public final static Option<Pattern> playerNameRegexPattern = new Option<>("player name regex pattern", Pattern.compile("[a-zA-Z0-9_]{1,16}"), s -> {
-		try {
-			return Pattern.compile(s);
-		} catch (PatternSyntaxException e) {
-			Skript.error("Invalid player name regex pattern: " + e.getMessage());
-			return null;
-		}
-	}).optional(true);
 
 	public static final Option<Timespan> longParseTimeWarningThreshold = new Option<>("long parse time warning threshold", new Timespan(0));
 

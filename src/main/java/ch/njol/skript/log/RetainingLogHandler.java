@@ -25,8 +25,6 @@ import java.util.Deque;
 import java.util.LinkedList;
 import java.util.logging.Level;
 
-import org.bukkit.Bukkit;
-import org.bukkit.command.CommandSender;
 import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.skript.Skript;
@@ -98,38 +96,7 @@ public class RetainingLogHandler extends LogHandler {
 		
 		return hasError;
 	}
-	
-	/**
-	 * Sends all retained error messages to the given recipient.
-	 * <p>
-	 * This handler is stopped if not already done.
-	 * 
-	 * @param recipient
-	 * @param def Error to send if no errors were logged, can be null to not print any error if there are none
-	 * @return Whether there were any errors to send
-	 */
-	public final boolean printErrors(CommandSender recipient, @Nullable String def) {
-		assert !printedErrorOrLog;
-		printedErrorOrLog = true;
-		stop();
 
-		boolean hasError = false;
-		for (LogEntry e : log) {
-			if (e.getLevel().intValue() >= Level.SEVERE.intValue()) {
-				SkriptLogger.sendFormatted(recipient, e.toFormattedString());
-				e.logged();
-				hasError = true;
-			} else {
-				e.discarded("not printed");
-			}
-		}
-		
-		if (!hasError && def != null) {
-			SkriptLogger.sendFormatted(recipient, def);
-		}
-		return hasError;
-	}
-	
 	/**
 	 * Prints all retained log messages.
 	 * <p>

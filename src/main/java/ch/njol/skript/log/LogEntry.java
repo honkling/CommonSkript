@@ -23,7 +23,6 @@ import java.util.logging.Level;
 import ch.njol.skript.localization.ArgsMessage;
 import ch.njol.skript.util.Utils;
 
-import org.bukkit.ChatColor;
 import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.skript.Skript;
@@ -168,7 +167,7 @@ public class LogEntry {
 		String from = this.from;
 
 		if (!from.isEmpty())
-			from = ChatColor.GRAY + "   " + from + "\n";
+			from = "   " + from + "\n";
 
 		return
 			String.format(lineInfoMsg, String.valueOf(node.getLine()), c.getFileName()) + // String.valueOf is to convert the line number (int) to a String

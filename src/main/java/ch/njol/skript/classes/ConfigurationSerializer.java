@@ -21,7 +21,6 @@ package ch.njol.skript.classes;
 import java.io.NotSerializableException;
 import java.io.StreamCorruptedException;
 
-import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.configuration.serialization.ConfigurationSerializable;
 import org.eclipse.jdt.annotation.Nullable;
@@ -78,7 +77,7 @@ public class ConfigurationSerializer<T extends ConfigurationSerializable> extend
 		final YamlConfiguration y = new YamlConfiguration();
 		try {
 			y.loadFromString(s);
-		} catch (final InvalidConfigurationException e) {
+		} catch (final IllegalArgumentException e) {
 			return null;
 		}
 		final Object o = y.get("value");
@@ -115,7 +114,7 @@ public class ConfigurationSerializer<T extends ConfigurationSerializable> extend
 		final YamlConfiguration y = new YamlConfiguration();
 		try {
 			y.loadFromString(s.replace("\uFEFF", "\n"));
-		} catch (final InvalidConfigurationException e) {
+		} catch (final IllegalArgumentException e) {
 			return null;
 		}
 		final Object o = y.get("value");

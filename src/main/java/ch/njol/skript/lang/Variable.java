@@ -55,8 +55,6 @@ import ch.njol.util.coll.CollectionUtils;
 import ch.njol.util.coll.iterator.EmptyIterator;
 import ch.njol.util.coll.iterator.SingleItemIterator;
 import org.bukkit.Bukkit;
-import org.bukkit.World;
-import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
 import org.eclipse.jdt.annotation.Nullable;
 import org.skriptlang.skript.lang.comparator.Comparators;
@@ -216,15 +214,6 @@ public class Variable<T> implements Expression<T> {
 						// Hint matches, even though converter is needed
 						return new Variable<>(variableString, CollectionUtils.array(type), true, isPlural, null);
 					}
-
-					// Special cases
-					if (type.isAssignableFrom(World.class) && hint.isAssignableFrom(String.class)) {
-						// String->World conversion is weird spaghetti code
-						return new Variable<>(variableString, types, true, isPlural, null);
-					} else if (type.isAssignableFrom(Player.class) && hint.isAssignableFrom(String.class)) {
-						// String->Player conversion is not available at this point
-						return new Variable<>(variableString, types, true, isPlural, null);
-					}
 				}
 
 				// Hint exists and does NOT match any types requested
@@ -312,7 +301,7 @@ public class Variable<T> implements Expression<T> {
 			// prevents e.g. {%expr%} where "%expr%" ends with "::*" from returning a Map
 			if (name.endsWith(Variable.SEPARATOR + "*") != list)
 				return null;
-			Object value = !list ? convertIfOldPlayer(name, event, Variables.getVariable(name, event, local)) : Variables.getVariable(name, event, local);
+			Object value = Variables.getVariable(name, event, local);
 			if (value != null)
 				return value;
 
@@ -350,28 +339,10 @@ public class Variable<T> implements Expression<T> {
 				else
 					value = variable.getValue();
 				if (value != null)
-					convertedValues.add(convertIfOldPlayer(name + variable.getKey(), event, value));
+					convertedValues.add(name + variable.getKey());
 			}
 		}
 		return convertedValues.toArray();
-	}
-
-	/*
-	 * Workaround for player variables when a player has left and rejoined
-	 * because the player object inside the variable will be a (kinda) dead variable
-	 * as a new player object has been created by the server.
-	 */
-	@Nullable
-	Object convertIfOldPlayer(String key, Event event, @Nullable Object object) {
-		if (SkriptConfig.enablePlayerVariableFix.value() && object instanceof Player) {
-			Player oldPlayer = (Player) object;
-			if (!oldPlayer.isValid() && oldPlayer.isOnline()) {
-				Player newPlayer = Bukkit.getPlayer(oldPlayer.getUniqueId());
-				Variables.setVariable(key, newPlayer, event, local);
-				return newPlayer;
-			}
-		}
-		return object;
 	}
 
 	public Iterator<Pair<String, Object>> variablesIterator(Event event) {
@@ -398,7 +369,7 @@ public class Variable<T> implements Expression<T> {
 				while (keys.hasNext()) {
 					key = keys.next();
 					if (key != null) {
-						next = convertIfOldPlayer(name + key, event, Variables.getVariable(name + key, event, local));
+						next = name + key;
 						if (next != null && !(next instanceof TreeMap))
 							return true;
 					}
@@ -453,7 +424,7 @@ public class Variable<T> implements Expression<T> {
 					key = keys.next();
 					if (key != null) {
 						next = Converters.convert(Variables.getVariable(name + key, event, local), types);
-						next = (T) convertIfOldPlayer(name + key, event, next);
+						next = (T) (name + key);
 						if (next != null && !(next instanceof TreeMap))
 							return true;
 					}

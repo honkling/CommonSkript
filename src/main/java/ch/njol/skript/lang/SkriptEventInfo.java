@@ -21,7 +21,6 @@ package ch.njol.skript.lang;
 import ch.njol.skript.SkriptAPIException;
 import ch.njol.skript.SkriptConfig;
 import org.bukkit.event.Event;
-import org.bukkit.event.player.PlayerInteractAtEntityEvent;
 import org.eclipse.jdt.annotation.Nullable;
 import org.skriptlang.skript.lang.structure.StructureInfo;
 import ch.njol.skript.lang.SkriptEvent.ListeningBehavior;
@@ -55,10 +54,6 @@ public final class SkriptEventInfo<E extends SkriptEvent> extends StructureInfo<
 		for (int i = 0; i < events.length; i++) {
 			for (int j = i + 1; j < events.length; j++) {
 				if (events[i].isAssignableFrom(events[j]) || events[j].isAssignableFrom(events[i])) {
-					if (events[i].equals(PlayerInteractAtEntityEvent.class)
-							|| events[j].equals(PlayerInteractAtEntityEvent.class))
-						continue; // Spigot seems to have an exception for those two events...
-
 					throw new SkriptAPIException("The event " + name + " (" + eventClass.getName() + ") registers with super/subclasses " + events[i].getName() + " and " + events[j].getName());
 				}
 			}

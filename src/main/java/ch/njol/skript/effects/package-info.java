@@ -17,7 +17,7 @@
  * Copyright Peter Güttinger, SkriptLang team and contributors
  */
 /**
- * Contains the default effects of Skript.
+ * Contains the default expression of Skript.
  * 
  * @author Peter Güttinger
  */

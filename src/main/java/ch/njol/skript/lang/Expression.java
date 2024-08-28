@@ -22,15 +22,12 @@ import ch.njol.skript.Skript;
 import ch.njol.skript.classes.Changer;
 import ch.njol.skript.classes.Changer.ChangeMode;
 import ch.njol.skript.classes.Changer.ChangerUtils;
-import ch.njol.skript.conditions.CondIsSet;
 import ch.njol.skript.lang.util.ConvertedExpression;
 import ch.njol.skript.lang.util.SimpleExpression;
 import ch.njol.skript.log.ErrorQuality;
 import ch.njol.skript.registrations.Classes;
-import ch.njol.skript.util.slot.Slot;
 import ch.njol.util.Checker;
 import org.bukkit.event.Event;
-import org.bukkit.inventory.ItemStack;
 import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.jdt.annotation.Nullable;
 import org.skriptlang.skript.lang.converter.Converter;
@@ -217,7 +214,7 @@ public interface Expression<T> extends SyntaxElement, Debuggable {
 	/**
 	 * Returns true if this expression returns all possible values, false if it only returns some of them.
 	 * <p>
-	 * This method significantly influences {@link #check(Event, Checker)}, {@link #check(Event, Checker, boolean)} and {@link CondIsSet} and thus breaks conditions that use this
+	 * This method significantly influences {@link #check(Event, Checker)}, {@link #check(Event, Checker, boolean)} and CondIsSet and thus breaks conditions that use this
 	 * expression if it returns a wrong value.
 	 * <p>
 	 * This method must return true if this is a {@link #isSingle() single} expression. // TODO make this method irrelevant for single expressions
@@ -368,16 +365,7 @@ public interface Expression<T> extends SyntaxElement, Debuggable {
 			newDelta = new Object[delta.length];
 			for (int i = 0; i < delta.length; i++) {
 				Object value = delta[i];
-				if (value instanceof Slot) {
-					ItemStack item = ((Slot) value).getItem();
-					if (item != null) {
-						item = item.clone(); // ItemStack in inventory is mutable
-					}
-
-					newDelta[i] = item;
-				} else {
-					newDelta[i] = Classes.clone(delta[i]);
-				}
+				newDelta[i] = Classes.clone(delta[i]);
 			}
 		}
 		// Everything else (inventories, actions, etc.) does not need special handling

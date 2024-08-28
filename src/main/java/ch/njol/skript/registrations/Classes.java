@@ -26,23 +26,11 @@ import java.io.NotSerializableException;
 import java.io.SequenceInputStream;
 import java.lang.reflect.Array;
 import java.nio.charset.Charset;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Locale;
-import java.util.Set;
+import java.util.*;
 import java.util.regex.Pattern;
 
-import ch.njol.skript.command.Commands;
-import ch.njol.skript.entity.EntityData;
 import ch.njol.skript.util.Utils;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
-import org.bukkit.Chunk;
 import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.skript.Skript;
@@ -57,7 +45,6 @@ import ch.njol.skript.localization.Language;
 import ch.njol.skript.log.ParseLogHandler;
 import ch.njol.skript.log.SkriptLogger;
 import ch.njol.skript.util.StringMode;
-import ch.njol.skript.variables.SQLStorage;
 import ch.njol.skript.variables.SerializedVariable;
 import ch.njol.skript.variables.Variables;
 import ch.njol.util.Kleenean;
@@ -95,16 +82,15 @@ public abstract class Classes {
 				throw new IllegalArgumentException("Can't register " + info.getC().getName() + " with the code name " + info.getCodeName() + " because that name is already used by " + classInfosByCodeName.get(info.getCodeName()));
 			if (exactClassInfos.containsKey(info.getC()))
 				throw new IllegalArgumentException("Can't register the class info " + info.getCodeName() + " because the class " + info.getC().getName() + " is already registered");
-			if (info.getCodeName().length() > SQLStorage.MAX_CLASS_CODENAME_LENGTH)
-				throw new IllegalArgumentException("The codename '" + info.getCodeName() + "' is too long to be saved in a database, the maximum length allowed is " + SQLStorage.MAX_CLASS_CODENAME_LENGTH);
 			exactClassInfos.put(info.getC(), info);
 			classInfosByCodeName.put(info.getCodeName(), info);
 			tempClassInfos.add(info);
 		} catch (RuntimeException e) {
-			if (SkriptConfig.apiSoftExceptions.value())
-				Skript.warning("Ignored an exception due to user configuration: " + e.getMessage());
-			else
-				throw e;
+			throw e;
+//			if (SkriptConfig.apiSoftExceptions.value())
+//				Skript.warning("Ignored an exception due to user configuration: " + e.getMessage());
+//			else
+//				throw e;
 		}
 	}
 	
@@ -130,8 +116,6 @@ public abstract class Classes {
 			if (s != null)
 				Variables.yggdrasil.registerClassResolver(s);
 		}
-
-		EntityData.onRegistrationStop();
 	}
 	
 	/**
@@ -513,8 +497,6 @@ public abstract class Classes {
 				return t;
 			}
 			for (final ConverterInfo<?, ?> conv : Converters.getConverterInfos()) {
-				if ((context == ParseContext.COMMAND || context == ParseContext.PARSE) && (conv.getFlags() & Commands.CONVERTER_NO_COMMAND_ARGUMENTS) != 0)
-					continue;
 				if (c.isAssignableFrom(conv.getTo())) {
 					log.clear();
 					Object object = parseSimple(s, conv.getFrom(), context);
@@ -663,22 +645,18 @@ public abstract class Classes {
 	}
 	
 	public static String toString(final Object[] os, final int flags, final boolean and) {
-		return toString(os, and, null, StringMode.MESSAGE, flags);
-	}
-	
-	public static String toString(final Object[] os, final int flags, final @Nullable ChatColor c) {
-		return toString(os, true, c, StringMode.MESSAGE, flags);
+		return toString(os, and, StringMode.MESSAGE, flags);
 	}
 	
 	public static String toString(final Object[] os, final boolean and) {
-		return toString(os, and, null, StringMode.MESSAGE, 0);
+		return toString(os, and, StringMode.MESSAGE, 0);
 	}
 	
 	public static String toString(final Object[] os, final boolean and, final StringMode mode) {
-		return toString(os, and, null, mode, 0);
+		return toString(os, and, mode, 0);
 	}
 	
-	private static String toString(final Object[] os, final boolean and, final @Nullable ChatColor c, final StringMode mode, final int flags) {
+	private static String toString(final Object[] os, final boolean and, final StringMode mode, final int flags) {
 		if (os.length == 0)
 			return toString(null);
 		if (os.length == 1)
@@ -686,8 +664,6 @@ public abstract class Classes {
 		final StringBuilder b = new StringBuilder();
 		for (int i = 0; i < os.length; i++) {
 			if (i != 0) {
-				if (c != null)
-					b.append(c.toString());
 				if (i == os.length - 1)
 					b.append(and ? " and " : " or ");
 				else
@@ -779,13 +755,7 @@ public abstract class Classes {
 	}
 	
 	private static boolean equals(final @Nullable Object o, final @Nullable Object d) {
-		if (o instanceof Chunk) { // CraftChunk does neither override equals nor is it a "coordinate-specific singleton" like Block
-			if (!(d instanceof Chunk))
-				return false;
-			final Chunk c1 = (Chunk) o, c2 = (Chunk) d;
-			return c1.getWorld().equals(c2.getWorld()) && c1.getX() == c2.getX() && c1.getZ() == c2.getZ();
-		}
-		return o == null ? d == null : o.equals(d);
+		return Objects.equals(o, d);
 	}
 	
 	@Nullable

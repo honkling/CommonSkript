@@ -22,11 +22,6 @@ import ch.njol.skript.Skript;
 import ch.njol.skript.SkriptAPIException;
 import ch.njol.skript.SkriptConfig;
 import ch.njol.skript.classes.ClassInfo;
-import ch.njol.skript.command.Argument;
-import ch.njol.skript.command.Commands;
-import ch.njol.skript.command.ScriptCommand;
-import ch.njol.skript.command.ScriptCommandEvent;
-import ch.njol.skript.expressions.ExprParse;
 import ch.njol.skript.lang.function.ExprFunctionCall;
 import ch.njol.skript.lang.function.FunctionReference;
 import ch.njol.skript.lang.function.Functions;
@@ -548,11 +543,7 @@ public class SkriptParser {
 						// Check return type against everything that expression accepts
 						if (parsedExpression.canReturn(type)) {
 							if (!exprInfo.isPlural[i] && !parsedExpression.isSingle()) { // Wrong number of arguments
-								if (context == ParseContext.COMMAND) {
-									Skript.error(Commands.m_too_many_arguments.toString(exprInfo.classes[i].getName().getIndefiniteArticle(), exprInfo.classes[i].getName().toString()), ErrorQuality.SEMANTIC_ERROR);
-								} else {
-									Skript.error("'" + expr + "' can only accept a single " + exprInfo.classes[i].getName() + ", not more", ErrorQuality.SEMANTIC_ERROR);
-								}
+								Skript.error("'" + expr + "' can only accept a single " + exprInfo.classes[i].getName() + ", not more", ErrorQuality.SEMANTIC_ERROR);
 								return null;
 							}
 
@@ -999,26 +990,6 @@ public class SkriptParser {
 			params = new Expression[0];
 		}
 		return params;
-	}
-
-	/**
-	 * Prints parse errors (i.e. must start a ParseLog before calling this method)
-	 */
-	public static boolean parseArguments(String args, ScriptCommand command, ScriptCommandEvent event) {
-		SkriptParser parser = new SkriptParser(args, PARSE_LITERALS, ParseContext.COMMAND);
-		ParseResult parseResult = parser.parse_i(command.getPattern());
-		if (parseResult == null)
-			return false;
-
-		List<Argument<?>> arguments = command.getArguments();
-		assert arguments.size() == parseResult.exprs.length;
-		for (int i = 0; i < parseResult.exprs.length; i++) {
-			if (parseResult.exprs[i] == null)
-				arguments.get(i).setToDefault(event);
-			else
-				arguments.get(i).set(event, parseResult.exprs[i].getArray(event));
-		}
-		return true;
 	}
 
 	/**

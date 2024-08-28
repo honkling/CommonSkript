@@ -24,8 +24,6 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.concurrent.Callable;
 
-import org.bukkit.Bukkit;
-import org.bukkit.World;
 import org.eclipse.jdt.annotation.Nullable;
 
 import ch.njol.skript.Skript;
@@ -132,8 +130,8 @@ public abstract class Serializer<T> extends YggdrasilSerializer<T> {
 	}
 	
 	/**
-	 * Used to deserialise Bukkit objects and other stuff that cannot be instantiated, e.g. a plugin may and should not create a new instance of {@link World}, but use
-	 * {@link Bukkit#getWorld(String)} to get an existing world object.
+	 * Used to deserialise Bukkit objects and other stuff that cannot be instantiated, e.g. a plugin may and should not create a new instance of World, but use
+	 * Bukkit#getWorld(String) to get an existing world object.
 	 * 
 	 * @param fields The Fields object that holds the information about the serialised object
 	 * @return The deserialised object. Must not be null (throw an exception instead).

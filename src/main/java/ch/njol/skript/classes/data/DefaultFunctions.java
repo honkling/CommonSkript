@@ -18,38 +18,24 @@
  */
 package ch.njol.skript.classes.data;
 
-import ch.njol.skript.Skript;
-import ch.njol.skript.expressions.base.EventValueExpression;
 import ch.njol.skript.lang.Expression;
-import ch.njol.skript.lang.function.FunctionEvent;
 import ch.njol.skript.lang.function.Functions;
-import ch.njol.skript.lang.function.JavaFunction;
 import ch.njol.skript.lang.function.Parameter;
 import ch.njol.skript.lang.function.SimpleJavaFunction;
 import ch.njol.skript.lang.util.SimpleLiteral;
 import ch.njol.skript.registrations.Classes;
 import ch.njol.skript.registrations.DefaultClasses;
 import ch.njol.skript.util.Color;
-import ch.njol.skript.util.ColorRGB;
 import ch.njol.skript.util.Date;
 import ch.njol.util.Math2;
 import ch.njol.util.StringUtils;
 import ch.njol.util.coll.CollectionUtils;
-import org.bukkit.Bukkit;
-import org.bukkit.Location;
-import org.bukkit.OfflinePlayer;
-import org.bukkit.World;
-import org.bukkit.entity.Player;
-import org.bukkit.util.Vector;
 import org.eclipse.jdt.annotation.Nullable;
 import ch.njol.skript.util.Contract;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.List;
-import java.util.UUID;
 
 public class DefaultFunctions {
 	
@@ -354,68 +340,6 @@ public class DefaultFunctions {
 					"clamp((5, 0, 10, 9, 13), 7, 10) = (7, 7, 10, 9, 10)",
 					"set {_clamped::*} to clamp({_values::*}, 0, 10)")
 			.since("2.8.0");
-
-		// misc
-		
-		Functions.registerFunction(new SimpleJavaFunction<World>("world", new Parameter[] {
-			new Parameter<>("name", DefaultClasses.STRING, true, null)
-		}, DefaultClasses.WORLD, true) {
-			@Override
-			public World[] executeSimple(Object[][] params) {
-				World w = Bukkit.getWorld((String) params[0][0]);
-				return w == null ? new World[0] : new World[] {w};
-			}
-		}).description("Gets a world from its name.")
-			.examples("set {_nether} to world(\"%{_world}%_nether\")")
-			.since("2.2");
-
-		Functions.registerFunction(new JavaFunction<Location>("location", new Parameter[] {
-			new Parameter<>("x", DefaultClasses.NUMBER, true, null),
-			new Parameter<>("y", DefaultClasses.NUMBER, true, null),
-			new Parameter<>("z", DefaultClasses.NUMBER, true, null),
-			new Parameter<>("world", DefaultClasses.WORLD, true, new EventValueExpression<>(World.class)),
-			new Parameter<>("yaw", DefaultClasses.NUMBER, true, new SimpleLiteral<Number>(0, true)),
-			new Parameter<>("pitch", DefaultClasses.NUMBER, true, new SimpleLiteral<Number>(0, true))
-		}, DefaultClasses.LOCATION, true) {
-			@Override
-			@Nullable
-			public Location[] execute(FunctionEvent<?> e, Object[][] params) {
-				for (int i : new int[] {0, 1, 2, 4, 5}) {
-					if (params[i] == null || params[i].length == 0 || params[i][0] == null)
-						return null;
-				}
-
-				World world = params[3].length == 1 ? (World) params[3][0] : Bukkit.getWorlds().get(0); // fallback to main world of server
-
-				return new Location[] {new Location(world,
-					((Number) params[0][0]).doubleValue(), ((Number) params[1][0]).doubleValue(), ((Number) params[2][0]).doubleValue(),
-					((Number) params[4][0]).floatValue(), ((Number) params[5][0]).floatValue())};
-			}
-		}.description("Creates a location from a world and 3 coordinates, with an optional yaw and pitch.",
-						"If for whatever reason the world is not found, it will fallback to the server's main world.")
-			.examples("# TELEPORTING",
-					"teleport player to location(1,1,1, world \"world\")",
-					"teleport player to location(1,1,1, world \"world\", 100, 0)",
-					"teleport player to location(1,1,1, world \"world\", yaw of player, pitch of player)",
-					"teleport player to location(1,1,1, world of player)",
-					"teleport player to location(1,1,1, world(\"world\"))",
-					"teleport player to location({_x}, {_y}, {_z}, {_w}, {_yaw}, {_pitch})",
-					"# SETTING BLOCKS",
-					"set block at location(1,1,1, world \"world\") to stone",
-					"set block at location(1,1,1, world \"world\", 100, 0) to stone",
-					"set block at location(1,1,1, world of player) to stone",
-					"set block at location(1,1,1, world(\"world\")) to stone",
-					"set block at location({_x}, {_y}, {_z}, {_w}) to stone",
-					"# USING VARIABLES",
-					"set {_l1} to location(1,1,1)",
-					"set {_l2} to location(10,10,10)",
-					"set blocks within {_l1} and {_l2} to stone",
-					"if player is within {_l1} and {_l2}:",
-					"# OTHER",
-					"kill all entities in radius 50 around location(1,65,1, world \"world\")",
-					"delete all entities in radius 25 around location(50,50,50, world \"world_nether\")",
-					"ignite all entities in radius 25 around location(1,1,1, world of player)")
-			.since("2.2"));
 		
 		Functions.registerFunction(new SimpleJavaFunction<Date>("date", new Parameter[] {
 			new Parameter<>("year", DefaultClasses.NUMBER, true, null),
@@ -480,133 +404,6 @@ public class DefaultFunctions {
 						"A time zone and DST offset can be specified as well (in minutes), if they are left out the server's time zone and DST offset are used (the created date will not retain this information).")
 			.examples("date(2014, 10, 1) # 0:00, 1st October 2014", "date(1990, 3, 5, 14, 30) # 14:30, 5th May 1990", "date(1999, 12, 31, 23, 59, 59, 999, -3*60, 0) # almost year 2000 in parts of Brazil (-3 hours offset, no DST)")
 			.since("2.2"));
-		
-		Functions.registerFunction(new SimpleJavaFunction<Vector>("vector", new Parameter[] {
-			new Parameter<>("x", DefaultClasses.NUMBER, true, null),
-			new Parameter<>("y", DefaultClasses.NUMBER, true, null),
-			new Parameter<>("z", DefaultClasses.NUMBER, true, null)
-		}, DefaultClasses.VECTOR, true) {
-			@Override
-			public Vector[] executeSimple(Object[][] params) {
-				return new Vector[] {new Vector(
-					((Number)params[0][0]).doubleValue(),
-					((Number)params[1][0]).doubleValue(),
-					((Number)params[2][0]).doubleValue()
-				)};
-			}
-			
-		}.description("Creates a new vector, which can be used with various expressions, effects and functions.")
-			.examples("vector(0, 0, 0)")
-			.since("2.2-dev23"));
-		
-		Functions.registerFunction(new SimpleJavaFunction<Long>("calcExperience", new Parameter[] {
-			new Parameter<>("level", DefaultClasses.LONG, true, null)
-		}, DefaultClasses.LONG, true) {
-			@Override
-			public Long[] executeSimple(Object[][] params) {
-				long level = (long) params[0][0];
-				long exp;
-				if (level <= 0) {
-					exp = 0;
-				} else if (level >= 1 && level <= 15) {
-					exp = level * level + 6 * level;
-				} else if (level >= 16 && level <= 30) { // Truncating decimal parts probably works
-					exp = (int) (2.5 * level * level - 40.5 * level + 360);
-				} else { // Half experience points do not exist, anyway
-					exp = (int) (4.5 * level * level - 162.5 * level + 2220);
-				}
-				
-				return new Long[] {exp};
-			}
-			
-		}.description("Calculates the total amount of experience needed to achieve given level from scratch in Minecraft.")
-			.since("2.2-dev32"));
-		
-		Functions.registerFunction(new SimpleJavaFunction<Color>("rgb", new Parameter[] {
-			new Parameter<>("red", DefaultClasses.LONG, true, null),
-			new Parameter<>("green", DefaultClasses.LONG, true, null),
-			new Parameter<>("blue", DefaultClasses.LONG, true, null)
-		}, DefaultClasses.COLOR, true) {
-			@Override
-			public ColorRGB[] executeSimple(Object[][] params) {
-				Long red = (Long) params[0][0];
-				Long green = (Long) params[1][0];
-				Long blue = (Long) params[2][0];
-				
-				return CollectionUtils.array(new ColorRGB(red.intValue(), green.intValue(), blue.intValue()));
-			}
-		}).description("Returns a RGB color from the given red, green and blue parameters.")
-			.examples("dye player's leggings rgb(120, 30, 45)")
-			.since("2.5");
-
-		Functions.registerFunction(new SimpleJavaFunction<Player>("player", new Parameter[] {
-			new Parameter<>("nameOrUUID", DefaultClasses.STRING, true, null),
-			new Parameter<>("getExactPlayer", DefaultClasses.BOOLEAN, true, new SimpleLiteral<Boolean>(false, true)) // getExactPlayer -- grammar ¯\_ (ツ)_/¯
-		}, DefaultClasses.PLAYER, true) {
-			@Override
-			public Player[] executeSimple(Object[][] params) {
-				String name = (String) params[0][0];
-				boolean isExact = (boolean) params[1][0];
-				UUID uuid = null;
-				if (name.length() > 16 || name.contains("-")) { // shortcut
-					try {
-						uuid = UUID.fromString(name);
-					} catch (IllegalArgumentException ignored) {}
-				}
-				return CollectionUtils.array(uuid != null ? Bukkit.getPlayer(uuid) : (isExact ? Bukkit.getPlayerExact(name) : Bukkit.getPlayer(name)));
-			}
-		}).description("Returns an online player from their name or UUID, if player is offline function will return nothing.", "Setting 'getExactPlayer' parameter to true will return the player whose name is exactly equal to the provided name instead of returning a player that their name starts with the provided name.")
-			.examples("set {_p} to player(\"Notch\") # will return an online player whose name is or starts with 'Notch'", "set {_p} to player(\"Notch\", true) # will return the only online player whose name is 'Notch'", "set {_p} to player(\"069a79f4-44e9-4726-a5be-fca90e38aaf5\") # <none> if player is offline")
-			.since("2.8.0");
-
-		{ // offline player function
-			boolean hasIfCached = Skript.methodExists(Bukkit.class, "getOfflinePlayerIfCached", String.class);
-
-			List<Parameter<?>> params = new ArrayList<>();
-			params.add(new Parameter<>("nameOrUUID", DefaultClasses.STRING, true, null));
-			if (hasIfCached)
-				params.add(new Parameter<>("allowLookups", DefaultClasses.BOOLEAN, true, new SimpleLiteral<>(true, true)));
-
-			Functions.registerFunction(new SimpleJavaFunction<OfflinePlayer>("offlineplayer", params.toArray(new Parameter[0]),
-				DefaultClasses.OFFLINE_PLAYER, true) {
-				@Override
-				public OfflinePlayer[] executeSimple(Object[][] params) {
-					String name = (String) params[0][0];
-					UUID uuid = null;
-					if (name.length() > 16 || name.contains("-")) { // shortcut
-						try {
-							uuid = UUID.fromString(name);
-						} catch (IllegalArgumentException ignored) {
-						}
-					}
-					OfflinePlayer result;
-
-					if (uuid != null) {
-						result = Bukkit.getOfflinePlayer(uuid); // doesn't do lookups
-					} else if (hasIfCached && !((Boolean) params[1][0])) {
-						result = Bukkit.getOfflinePlayerIfCached(name);
-						if (result == null)
-							return new OfflinePlayer[0];
-					} else {
-						result = Bukkit.getOfflinePlayer(name);
-					}
-
-					return CollectionUtils.array(result);
-				}
-
-			}).description(
-				"Returns a offline player from their name or UUID. This function will still return the player if they're online. " +
-				"If Paper 1.16.5+ is used, the 'allowLookup' parameter can be set to false to prevent this function from doing a " +
-				"web lookup for players who have not joined before. Lookups can cause lag spikes of up to multiple seconds, so " +
-				"use offline players with caution."
-			)
-			.examples(
-				"set {_p} to offlineplayer(\"Notch\")",
-				"set {_p} to offlineplayer(\"069a79f4-44e9-4726-a5be-fca90e38aaf5\")",
-				"set {_p} to offlineplayer(\"Notch\", false)"
-			)
-			.since("2.8.0, 2.9.0 (prevent lookups)");
-		} // end offline player function
 
 		Functions.registerFunction(new SimpleJavaFunction<Boolean>("isNaN", numberParam, DefaultClasses.BOOLEAN, true) {
 			@Override

@@ -19,7 +19,6 @@
 package ch.njol.skript.lang;
 
 import ch.njol.skript.Skript;
-import ch.njol.skript.util.SkriptColor;
 import ch.njol.util.StringUtils;
 import org.bukkit.event.Event;
 import org.eclipse.jdt.annotation.Nullable;
@@ -99,7 +98,7 @@ public abstract class TriggerItem implements Debuggable {
 						scriptName = scriptFile.getName();
 				}
 			}
-			Skript.adminBroadcast("<red>The script '<gold>" + scriptName + "<red>' infinitely (or excessively) repeated itself!");
+			Skript.error("<red>The script '<gold>" + scriptName + "<red>' infinitely (or excessively) repeated itself!");
 			if (Skript.debug())
 				err.printStackTrace();
 		} catch (Exception ex) {
@@ -135,7 +134,7 @@ public abstract class TriggerItem implements Debuggable {
 	protected final void debug(Event event, boolean run) {
 		if (!Skript.debug())
 			return;
-		Skript.debug(SkriptColor.replaceColorChar(getIndentation() + (run ? "" : "-") + toString(event, true)));
+		Skript.debug(getIndentation() + (run ? "" : "-") + toString(event, true));
 	}
 
 	@Override
