@@ -40,11 +40,6 @@ dependencies {
 	shadow "com.googlecode.json-simple:json-simple:1.1.1"
 	shadow "commons-lang:commons-lang:2.6"
 	shadow "org.yaml:snakeyaml:1.23"
-
-//	implementation fileTree(dir: 'lib', include: '*.jar')
-
-//	testShadow group: 'junit', name: 'junit', version: '4.13.2'
-//	testShadow group: 'org.easymock', name: 'easymock', version: '5.0.1'
 }
 
 task jar(overwrite: true, type: ShadowJar) {

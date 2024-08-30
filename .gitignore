@@ -228,3 +228,5 @@ test_runners/
 **/.DS_Store
 
 plugins/
+# Ignore Gradle build output directory
+build
