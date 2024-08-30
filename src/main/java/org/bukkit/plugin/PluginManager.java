@@ -77,19 +77,20 @@ public class PluginManager {
 		}
 	}
 
-	public void loadPlugin(File file) {
+	public JavaPlugin loadPlugin(File file) {
 		try {
 			PluginClassLoader loader = new PluginClassLoader(this, file, this.getClass().getClassLoader());
 			PluginDescriptionFile description = loader.getDescription();
 
 			if (description == null)
-				return;
+				return null;
 
 			try {
 				Class<?> clazz = loader.loadClass(description.getMain());
 				JavaPlugin plugin = (JavaPlugin) clazz.getConstructor().newInstance();
 				plugin.init(description, loader);
 				plugins.put(description.getName(), plugin);
+				return plugin;
 			} catch (ClassNotFoundException | NoSuchMethodException exception) {
 				Bukkit.getLogger().warning(String.format(
 					"Found plugin '%s' with an invalid main class.",
@@ -99,6 +100,8 @@ public class PluginManager {
 		} catch (MalformedURLException | ReflectiveOperationException exception) {
 			exception.printStackTrace();
 		}
+
+		return null;
 	}
 
 	private HandlerList getHandlerList(Class<? extends Event> event) throws InvocationTargetException, IllegalAccessException, NoSuchMethodException {

@@ -80,8 +80,10 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.PluginDescriptionFile;
+import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.eclipse.jdt.annotation.Nullable;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.UnknownNullability;
 import org.junit.After;
 import org.junit.runner.JUnitCore;
@@ -241,6 +243,11 @@ public final class Skript extends JavaPlugin implements Listener {
 	private File scriptsFolder;
 
 	/**
+	 * The folder containing all addons.
+	 */
+	private File addonsFolder;
+
+	/**
 	 * @return The manager for experimental, optional features.
 	 */
 	public static ExperimentRegistry experiments() {
@@ -255,6 +262,16 @@ public final class Skript extends JavaPlugin implements Listener {
 			//noinspection ResultOfMethodCallIgnored
 			scriptsFolder.mkdirs();
 		return scriptsFolder;
+	}
+
+	/**
+	 * @return The folder containing all Scripts.
+	 */
+	public @NotNull File getAddonsFolder() {
+		if (!addonsFolder.isDirectory())
+			//noinspection ResultOfMethodCallIgnored
+			addonsFolder.mkdirs();
+		return addonsFolder;
 	}
 
 	@Override
@@ -284,6 +301,7 @@ public final class Skript extends JavaPlugin implements Listener {
 			getDataFolder().mkdirs();
 
 		scriptsFolder = new File(getDataFolder(), SCRIPTSFOLDER);
+		addonsFolder = new File(getDataFolder(), ADDONSFOLDER);
 		File config = new File(getDataFolder(), "config.sk");
 		File features = new File(getDataFolder(), "features.sk");
 		File lang = new File(getDataFolder(), "lang");
@@ -396,9 +414,18 @@ public final class Skript extends JavaPlugin implements Listener {
 		if (logNormal())
 			info(" " + Language.get("skript.copyright"));
 
+		PluginManager pluginManager = Bukkit.getPluginManager();
+
+		for (File addonFile : getAddonsFolder().listFiles()) {
+			if (!addonFile.isFile() || !addonFile.getName().endsWith(".jar") || addonFile.equals(getFile()))
+				continue;
+
+			JavaPlugin plugin = pluginManager.loadPlugin(addonFile);
+			plugin.setEnabled(true);
+			plugin.onEnable();
+		}
+
 		stopAcceptingRegistrations();
-
-
 		Documentation.generate(); // TODO move to test classes?
 
 		// Variable loading
@@ -684,6 +711,7 @@ public final class Skript extends JavaPlugin implements Listener {
 	// ================ CONSTANTS, OPTIONS & OTHER ================
 
 	public final static String SCRIPTSFOLDER = "scripts";
+	public final static String ADDONSFOLDER = "addons";
 
 	/**
 	 * A small value, useful for comparing doubles or floats.
