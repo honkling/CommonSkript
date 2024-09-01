@@ -188,6 +188,8 @@ public final class Skript extends JavaPlugin implements Listener {
 		instance = this;
 	}
 
+	private static Runnable registration;
+
 	private static Version minecraftVersion = new Version(666), UNKNOWN_VERSION = new Version(666);
 	private static ServerPlatform serverPlatform = ServerPlatform.BUKKIT_UNKNOWN; // Start with unknown... onLoad changes this
 
@@ -405,6 +407,8 @@ public final class Skript extends JavaPlugin implements Listener {
 		try {
 			getAddonInstance().loadClasses("ch.njol.skript",
 				"conditions", "effects", "events", "expressions", "entity", "sections", "structures");
+
+			registration.run();
 		} catch (final Exception e) {
 			exception(e, "Could not load required .class files: " + e.getLocalizedMessage());
 			setEnabled(false);
@@ -503,6 +507,10 @@ public final class Skript extends JavaPlugin implements Listener {
 					throw Skript.exception(e);
 				}
 			});
+	}
+
+	public static void onRegistration(Runnable runnable) {
+		registration = runnable;
 	}
 
 	/**

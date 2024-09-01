@@ -16,7 +16,7 @@ subprojects {
 	publishing {
 		publications {
 			create<MavenPublication>("maven") {
-				groupId = "org.skriptlang"
+				groupId = "org.skriptlang.skript"
 				artifactId = project.name
 				version = rootProject.version.toString()
 

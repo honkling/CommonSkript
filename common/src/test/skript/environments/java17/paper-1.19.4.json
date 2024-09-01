@@ -9,7 +9,7 @@
 			"target": "paperclip.jar"
 		}
 	],
-	"skriptTarget": "plugins/Skript.jar",
+	"skriptTarget": "run/Skript.jar",
 	"commandLine": [
 		"-Dcom.mojang.eula.agree=true",
 		"-jar", "paperclip.jar", "--nogui"

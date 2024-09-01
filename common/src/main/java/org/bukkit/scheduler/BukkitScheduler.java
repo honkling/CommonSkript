@@ -1,5 +1,6 @@
 package org.bukkit.scheduler;
 
+import org.bukkit.Bukkit;
 import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.Nullable;
 
@@ -15,16 +16,11 @@ public class BukkitScheduler {
 	private Task currentTask = null;
 
 	public BukkitScheduler() {
-        Timer tickTimer = new Timer(true);
-        tickTimer.scheduleAtFixedRate(new TimerTask() {
-			@Override
-			public void run() {
-				tick();
-			}
-		}, 0, 50);
+        Ticker ticker = Bukkit.getTicker();
+		ticker.initialize(this::tick);
 	}
 
-	private void tick() {
+	public void tick() {
 		for (int taskID : tasks.keySet()) {
 			Task task = tasks.get(taskID);
 			task.ticksLeft--;

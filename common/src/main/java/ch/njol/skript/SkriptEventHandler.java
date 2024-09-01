@@ -161,8 +161,9 @@ public final class SkriptEventHandler {
 		};
 
 		if (trigger.getEvent().canExecuteAsynchronously()) {
-			if (trigger.getEvent().check(event))
+			if (trigger.getEvent().check(event)) {
 				execute.run();
+			}
 		} else { // Ensure main thread
 			Task.callSync(() -> {
 				if (trigger.getEvent().check(event))
